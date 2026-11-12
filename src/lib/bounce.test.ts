@@ -52,6 +52,18 @@ describe('placeDoors', () => {
     }
   });
 
+  it('keeps the doors below the strip reserved for the word', () => {
+    for (const height of [400, 560, 800]) {
+      for (const r of [0, 0.5, 0.999]) {
+        const [upper, lower] = placeDoors({ width: 360, height }, 1, () => r, 70);
+        expect(upper.top).toBeGreaterThan(70);
+        expect(lower.top).toBeGreaterThan(upper.bottom + BEE_RADIUS);
+        expect(lower.bottom).toBeLessThanOrEqual(height);
+        expect(upper.bottom - upper.top).toBeGreaterThan(BEE_RADIUS * 4);
+      }
+    }
+  });
+
   it('marks exactly the door of the right answer', () => {
     expect(placeDoors(arena, 0).map((d) => d.correct)).toEqual([true, false]);
     expect(placeDoors(arena, 1).map((d) => d.correct)).toEqual([false, true]);

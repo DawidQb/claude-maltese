@@ -964,19 +964,51 @@ select {
 
 /* Busy bee */
 
+/* The word being asked sits in the top strip of the field; the bee flies behind it. */
 .bee-prompt {
+  position: absolute;
+  inset: 0 0 auto;
   display: grid;
   place-items: center;
-  min-height: 76px;
+  min-height: 62px;
+  padding: 10px 24px 4px;
   text-align: center;
+  pointer-events: none;
 }
 
 .bee-prompt .word-mt {
-  font-size: clamp(1.8rem, 9vw, 2.6rem);
+  font-size: clamp(1.7rem, 8.5vw, 2.3rem);
+}
+
+.bee-prompt .translations {
+  gap: 2px;
 }
 
 .bee-prompt .translations dd {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
+}
+
+.bee-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.btn-small {
+  flex: none;
+  min-height: 40px;
+  padding: 0 16px;
+}
+
+.bee-summary {
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+
+.bee-missed {
+  width: 100%;
+  text-align: left;
 }
 
 .bee-arena {
@@ -1017,10 +1049,8 @@ select {
 }
 
 .bee-hint {
-  min-height: 1.4em;
   font-size: 0.85rem;
   color: var(--muted);
-  text-align: center;
 }
 
 .bee-reveal {

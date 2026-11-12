@@ -57,14 +57,17 @@ export function nextSpeed(speed: number, event: WallEvent): number {
   return speed;
 }
 
-/** One door in the top half and one in the bottom half, at random heights. */
-export function placeDoors(arena: Arena, correctOption: number, rng: Rng = Math.random): Door[] {
-  const half = arena.height / 2;
+/**
+ * One door in the upper half and one in the lower half, at random heights.
+ * `headroom` keeps a strip at the top free of doors, for the word being asked.
+ */
+export function placeDoors(arena: Arena, correctOption: number, rng: Rng = Math.random, headroom = 0): Door[] {
+  const half = (arena.height - headroom) / 2;
   const room = half - DOOR_PAD - DOOR_GAP / 2;
   const size = Math.min(room, Math.max(96, Math.min(150, arena.height * 0.26)));
   const slack = room - size;
-  const upperTop = DOOR_PAD + rng() * slack;
-  const lowerTop = half + DOOR_GAP / 2 + rng() * slack;
+  const upperTop = headroom + DOOR_PAD + rng() * slack;
+  const lowerTop = headroom + half + DOOR_GAP / 2 + rng() * slack;
   return [
     { top: upperTop, bottom: upperTop + size, option: 0, correct: correctOption === 0 },
     { top: lowerTop, bottom: lowerTop + size, option: 1, correct: correctOption === 1 },

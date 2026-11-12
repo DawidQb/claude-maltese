@@ -15,7 +15,8 @@ import {
   type Bee,
 } from '../../lib/bounce';
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
-import type { AppData } from '../../lib/store';
+import type { Direction } from '../../lib/srs';
+import type { AppData, ShowLang } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face } from '../Cards';
 import { GameShell, Tally } from './GameShell';
@@ -59,25 +60,27 @@ function readColors(): Colors {
   };
 }
 
-/**
- * Tap to keep the bee in the air. It bounces between two walls; the wall ahead has
- * two doors, each labelled with an answer. Fly through the right one.
- */
-export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void }) {
-  const [{ topic, show, direction: dir }] = useState(data.settings);
-  const [pool] = useState(() => {
-    const inTopic = beeWords(wordsInTopic(topic, data.settings), dir, show);
-    // A topic can be left with too few short words; then play with the whole deck.
-    return inTopic.length >= MIN_POOL ? inTopic : beeWords(wordsInTopic(ALL_TOPICS, data.settings), dir, show);
-  });
+interface FieldProps {
+  pool: Word[];
+  dir: Direction;
+  show: ShowLang;
+  onStart: () => void;
+  onCorrect: () => void;
+  onWrong: (word: Word) => void;
+}
+
+/** The play area: the word at the top, the bee, the walls and their doors. One round per mount. */
+function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) {
   const [stream] = useState(() => new WordStream(pool));
   const [question, setQuestion] = useState<Question>(() => makeQuestion(pool, stream.next(), Math.random, 2));
-  const [tally, setTally] = useState({ ok: 0, bad: 0 });
   const [reveal, setReveal] = useState<Word | null>(null);
-  const [started, setStarted] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const promptRef = useRef<HTMLDivElement>(null);
+  // The loop below starts once; it reaches the latest callbacks through this ref.
+  const cb = useRef({ onStart, onCorrect, onWrong });
+  cb.current = { onStart, onCorrect, onWrong };
   /** Called on tap or key press; set by the game loop below. */
   const tapRef = useRef<() => void>(() => {});
   // The loop reads the first question once; later ones are created inside it.
@@ -101,6 +104,8 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
     let frame = 0;
 
     const correctOption = () => q.options.findIndex((w) => w.id === q.answer.id);
+    /** Doors stay below the word shown at the top of the field. */
+    const doors = () => placeDoors(arena, correctOption(), Math.random, (promptRef.current?.offsetHeight ?? 0) + 6);
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -110,12 +115,12 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
       canvas.height = Math.round(arena.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!bee) {
-        bee = newBee(arena, placeDoors(arena, correctOption()));
+        bee = newBee(arena, doors());
       } else {
         // Keep the bee on screen and rebuild the doors for the new size.
         bee.x = Math.min(Math.max(bee.x, WALL + BEE_RADIUS), arena.width - WALL - BEE_RADIUS);
         bee.y = Math.min(bee.y, arena.height - BEE_RADIUS);
-        bee.doors = placeDoors(arena, correctOption());
+        bee.doors = doors();
         if (running) bee.vx = bee.dir * speed * arena.width;
       }
     };
@@ -125,18 +130,18 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
       setQuestion(q);
     };
 
-    const turnAround = () => turn(bee!, arena, speed, placeDoors(arena, correctOption()));
+    const turnAround = () => turn(bee!, arena, speed, doors());
 
     const onWall = (event: 'correct' | 'wrong' | 'bump', now: number) => {
       const b = bee!;
       speed = nextSpeed(speed, event);
       if (event === 'correct') {
-        setTally((t) => ({ ...t, ok: t.ok + 1 }));
+        cb.current.onCorrect();
         sparks.push({ text: '✓', x: b.x, y: b.y, born: now, good: true });
         nextQuestion();
         turnAround();
       } else if (event === 'wrong') {
-        setTally((t) => ({ ...t, bad: t.bad + 1 }));
+        cb.current.onWrong(q.answer);
         sparks.push({ text: '✗', x: b.x, y: b.y, born: now, good: false });
         stream.repeatLater(q.answer);
         setReveal(q.answer);
@@ -153,7 +158,7 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
       if (!running) {
         running = true;
         bee.vx = bee.dir * speed * arena.width;
-        setStarted(true);
+        cb.current.onStart();
       }
       flap(bee);
     };
@@ -369,33 +374,128 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
   }, []);
 
   return (
-    <GameShell title="Busy bee" status={<Tally ok={tally.ok} bad={tally.bad} />} onExit={onExit}>
-      <div className="bee-prompt" aria-live="polite">
+    <div
+      ref={wrapRef}
+      className="bee-arena"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        tapRef.current();
+      }}
+    >
+      <canvas ref={canvasRef} role="img" aria-label="Game area: a bee flying between two walls with answer doors" />
+
+      <div ref={promptRef} className="bee-prompt" aria-live="polite">
         <Face word={question.answer} side={dir === 'mt2x' ? 'mt' : 'x'} show={show} />
       </div>
 
-      <div
-        ref={wrapRef}
-        className="bee-arena"
-        onPointerDown={(e) => {
-          e.preventDefault();
-          tapRef.current();
-        }}
-      >
-        <canvas ref={canvasRef} role="img" aria-label="Game area: a bee flying between two walls with answer doors" />
+      {reveal && (
+        <div className="bee-overlay bee-reveal" role="status">
+          <p className="word-mt" lang="mt">
+            {reveal.mt}
+          </p>
+          <p className="bee-equals">=</p>
+          <Face word={reveal} side="x" show={show} />
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {reveal && (
-          <div className="bee-overlay bee-reveal" role="status">
-            <p className="word-mt" lang="mt">
-              {reveal.mt}
-            </p>
-            <p className="bee-equals">=</p>
-            <Face word={reveal} side="x" show={show} />
+/**
+ * Tap to keep the bee in the air. It bounces between two walls; the wall ahead has
+ * two doors, each labelled with an answer. Fly through the right one.
+ */
+export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void }) {
+  const [{ topic, show, direction: dir }] = useState(data.settings);
+  const [pool] = useState(() => {
+    const inTopic = beeWords(wordsInTopic(topic, data.settings), dir, show);
+    // A topic can be left with too few short words; then play with the whole deck.
+    return inTopic.length >= MIN_POOL ? inTopic : beeWords(wordsInTopic(ALL_TOPICS, data.settings), dir, show);
+  });
+  const [round, setRound] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [tally, setTally] = useState({ ok: 0, bad: 0 });
+  /** Words answered wrongly this round, each listed once, in the order they came up. */
+  const [missed, setMissed] = useState<Word[]>([]);
+
+  const playAgain = () => {
+    setRound((n) => n + 1);
+    setStarted(false);
+    setFinished(false);
+    setTally({ ok: 0, bad: 0 });
+    setMissed([]);
+  };
+
+  return (
+    <GameShell title="Busy bee" status={<Tally ok={tally.ok} bad={tally.bad} />} onExit={onExit}>
+      {finished ? (
+        <div className="card card-done bee-summary" role="status">
+          <p className="done-title" lang="mt">
+            Prosit!
+          </p>
+          <ul className="legend legend-center">
+            <li>
+              <i className="dot dot-known" />
+              {tally.ok} right
+            </li>
+            <li>
+              <i className="dot dot-no" />
+              {tally.bad} wrong
+            </li>
+          </ul>
+
+          {missed.length > 0 && (
+            <div className="bee-missed">
+              <h2 className="eyebrow">Words to look at again</h2>
+              <ul className="wordlist">
+                {missed.map((w) => (
+                  <li key={w.id}>
+                    <div className="wordlist-text">
+                      <span className="wordlist-mt" lang="mt">
+                        {w.mt}
+                      </span>
+                      <span className="wordlist-tr">
+                        <span lang="pl">{w.pl}</span> · <span lang="en">{w.en}</span>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="done-actions">
+            <button className="btn btn-secondary btn-wide" onClick={playAgain}>
+              Play again
+            </button>
+            <button className="btn btn-primary btn-wide" onClick={onExit}>
+              Done
+            </button>
           </div>
-        )}
-      </div>
-
-      <p className="bee-hint">{started ? 'Tap to fly up' : 'Tap to start, then steer through the door with the right answer'}</p>
+        </div>
+      ) : (
+        <>
+          <BeeField
+            key={round}
+            pool={pool}
+            dir={dir}
+            show={show}
+            onStart={() => setStarted(true)}
+            onCorrect={() => setTally((t) => ({ ...t, ok: t.ok + 1 }))}
+            onWrong={(word) => {
+              setTally((t) => ({ ...t, bad: t.bad + 1 }));
+              setMissed((list) => (list.includes(word) ? list : [...list, word]));
+            }}
+          />
+          <div className="bee-foot">
+            <p className="bee-hint">{started ? 'Tap to fly up' : 'Tap to start, then fly through the right door'}</p>
+            <button className="btn btn-secondary btn-small" onClick={() => setFinished(true)}>
+              Finish
+            </button>
+          </div>
+        </>
+      )}
     </GameShell>
   );
 }
