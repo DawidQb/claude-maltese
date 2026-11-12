@@ -523,6 +523,20 @@ select {
   animation: rise 0.2s ease;
 }
 
+.card-tappable {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tap-hint {
+  display: grid;
+  place-items: center;
+  min-height: 56px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .card-side {
   font-size: 0.75rem;
   font-weight: 700;

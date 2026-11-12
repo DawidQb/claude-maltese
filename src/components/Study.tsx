@@ -170,7 +170,13 @@ function FlipCard({ word, dir, show, onGrade }: FlipProps) {
 
   return (
     <>
-      <div className="card">
+      <div
+        className="card card-tappable"
+        role="button"
+        tabIndex={0}
+        aria-label={revealed ? 'Hide the answer' : 'Show the answer'}
+        onClick={() => setRevealed((r) => !r)}
+      >
         <p className="card-side">{dir === 'mt2x' ? 'Maltese' : 'Translate into Maltese'}</p>
         <Face word={word} side={dir === 'mt2x' ? 'mt' : 'x'} show={show} />
         {revealed && (
@@ -192,9 +198,7 @@ function FlipCard({ word, dir, show, onGrade }: FlipProps) {
             ))}
           </div>
         ) : (
-          <button className="btn btn-primary btn-wide" onClick={() => setRevealed(true)}>
-            Show answer
-          </button>
+          <p className="tap-hint">Tap the card to see the answer</p>
         )}
       </div>
     </>
