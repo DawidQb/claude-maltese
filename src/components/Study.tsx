@@ -29,6 +29,8 @@ export function Study({ data, update, today, onExit }: Props) {
   // Words already answered "No" this session: they repeat until known, without being re-scored.
   const [retry, setRetry] = useState<Set<string>>(() => new Set());
   const [tally, setTally] = useState<Record<Grade, number>>({ no: 0, almost: 0, knew: 0 });
+  // Counts answers, so every question gets a fresh card, even the same word twice in a row.
+  const [turn, setTurn] = useState(0);
 
   const current = queue.length > 0 ? BY_ID.get(queue[0]) : undefined;
   const unseenLeft = wordIds.filter((id) => !data.cards[cardKey(dir, id)]).length;
@@ -58,6 +60,7 @@ export function Study({ data, update, today, onExit }: Props) {
       } else {
         setQueue(rest);
       }
+      setTurn((n) => n + 1);
     },
     [queue, retry, update, dir, today],
   );
@@ -70,8 +73,7 @@ export function Study({ data, update, today, onExit }: Props) {
   };
 
   const done = total - queue.length;
-  // Remount the card for every question, including a missed word coming round again.
-  const cardId = current ? `${current.id}:${queue.length}:${done}` : '';
+  const cardId = `${current?.id}:${turn}`;
 
   return (
     <div className="study">
