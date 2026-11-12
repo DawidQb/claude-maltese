@@ -1,15 +1,21 @@
 :root {
-  /* Limestone, ink and the red of the Maltese flag. */
+  /*
+   * Limestone, ink and bee yellow. Yellow is the brand colour: buttons, highlights
+   * and the name. Red is kept for mistakes and destructive actions (and the icon).
+   * --accent fills areas and carries dark text; --accent-text is the same hue
+   * darkened (or lightened, in dark mode) until it is readable as text.
+   */
   --bg: #f6efe2;
   --surface: #fffaf1;
   --surface-2: #efe5d2;
   --ink: #2a2420;
   --muted: #6f655b;
   --line: #e0d3bc;
-  --accent: #b80f2a;
-  --accent-ink: #ffffff;
+  --accent: #f2b705;
+  --accent-ink: #2a2420;
+  --accent-text: #8f5e00;
   --known: #1f7a5c;
-  --learning: #c98a14;
+  --learning: #c8650b;
   --no: #b80f2a;
   --shadow: 0 1px 2px rgb(60 40 20 / 0.06), 0 8px 24px rgb(60 40 20 / 0.08);
   --radius: 16px;
@@ -26,10 +32,11 @@
     --ink: #f3ebdd;
     --muted: #a99d8e;
     --line: #3d362e;
-    --accent: #ef5a6f;
+    --accent: #f2b705;
     --accent-ink: #1b1815;
+    --accent-text: #f5c542;
     --known: #58c29c;
-    --learning: #e5b04a;
+    --learning: #f08c3a;
     --no: #ef5a6f;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.3);
   }
@@ -71,7 +78,7 @@ select {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 2px;
 }
 
@@ -98,7 +105,10 @@ select {
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--accent);
+  padding: 0 10px 2px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .brand-sub {
@@ -763,7 +773,7 @@ select {
   font-family: var(--serif);
   font-size: 2.6rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .done-text {
@@ -879,8 +889,8 @@ select {
 }
 
 .tile-btn.is-picked {
-  border-color: var(--accent);
-  background: var(--surface-2);
+  border-color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
 }
 
 .tile-btn.is-matched,

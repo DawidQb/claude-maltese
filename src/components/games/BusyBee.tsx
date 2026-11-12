@@ -56,7 +56,7 @@ function readColors(): Colors {
     tag: v('--bg'),
     good: v('--known'),
     bad: v('--no'),
-    honey: v('--learning'),
+    honey: v('--accent'),
   };
 }
 
