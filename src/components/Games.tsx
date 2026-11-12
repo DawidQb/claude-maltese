@@ -1,7 +1,7 @@
 import type { AppData, Update } from '../lib/store';
 import { DIRECTION_LABEL, TopicOptions } from './Home';
 
-export type GameId = 'typing' | 'pairs' | 'speed';
+export type GameId = 'bee' | 'typing' | 'pairs' | 'speed';
 
 interface Props {
   data: AppData;
@@ -14,6 +14,12 @@ export function Games({ data, update, onPlay }: Props) {
   const best = data.games.speedBest;
 
   const games: { id: GameId; name: string; text: string; detail?: string }[] = [
+    {
+      id: 'bee',
+      name: 'Busy bee',
+      text: 'Tap to keep the bee flying and steer it through the door with the right answer.',
+      detail: DIRECTION_LABEL[direction],
+    },
     {
       id: 'typing',
       name: 'Infinite typing',

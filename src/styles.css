@@ -962,6 +962,82 @@ select {
   }
 }
 
+/* Busy bee */
+
+.bee-prompt {
+  display: grid;
+  place-items: center;
+  min-height: 76px;
+  text-align: center;
+}
+
+.bee-prompt .word-mt {
+  font-size: clamp(1.8rem, 9vw, 2.6rem);
+}
+
+.bee-prompt .translations dd {
+  font-size: 1.25rem;
+}
+
+.bee-arena {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bee-arena canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bee-overlay {
+  position: absolute;
+  inset: auto 28px 16%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  color: var(--muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+.bee-hint {
+  min-height: 1.4em;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.bee-reveal {
+  inset: 50% 28px auto;
+  transform: translateY(-50%);
+  border: 2px solid var(--no);
+  color: var(--ink);
+}
+
+.bee-reveal .word-mt {
+  font-size: 2rem;
+}
+
+.bee-equals {
+  color: var(--muted);
+}
+
 /* ---------- Word list ---------- */
 
 .filters {

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Games, type GameId } from './components/Games';
+import { BusyBee } from './components/games/BusyBee';
 import { InfiniteTyping } from './components/games/InfiniteTyping';
 import { MatchPairs } from './components/games/MatchPairs';
 import { SpeedRound } from './components/games/SpeedRound';
@@ -31,6 +32,7 @@ export function App() {
     return (
       <div className="shell">
         {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
+        {activity === 'bee' && <BusyBee data={data} onExit={close} />}
         {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
         {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
         {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
