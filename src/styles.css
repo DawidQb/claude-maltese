@@ -1011,6 +1011,36 @@ select {
   text-align: left;
 }
 
+.mistake-asked {
+  font-weight: 700;
+}
+
+.mistake {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.mistake b {
+  display: inline-block;
+  width: 1.2em;
+}
+
+.mistake-right {
+  font-weight: 600;
+}
+
+.mistake-right b {
+  color: var(--known);
+}
+
+.mistake-wrong {
+  color: var(--muted);
+}
+
+.mistake-wrong b {
+  color: var(--no);
+}
+
 .bee-arena {
   position: relative;
   flex: 1;

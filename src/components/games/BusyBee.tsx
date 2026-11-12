@@ -66,7 +66,8 @@ interface FieldProps {
   show: ShowLang;
   onStart: () => void;
   onCorrect: () => void;
-  onWrong: (word: Word) => void;
+  /** The word that was asked, and the wrong answer whose door the bee flew through. */
+  onWrong: (word: Word, chosen: Word) => void;
 }
 
 /** The play area: the word at the top, the bee, the walls and their doors. One round per mount. */
@@ -141,7 +142,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
         nextQuestion();
         turnAround();
       } else if (event === 'wrong') {
-        cb.current.onWrong(q.answer);
+        // With two doors, the one flown through is the option that is not the answer.
+        cb.current.onWrong(q.answer, q.options.find((w) => w.id !== q.answer.id)!);
         sparks.push({ text: '✗', x: b.x, y: b.y, born: now, good: false });
         stream.repeatLater(q.answer);
         setReveal(q.answer);
@@ -416,15 +418,17 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [tally, setTally] = useState({ ok: 0, bad: 0 });
-  /** Words answered wrongly this round, each listed once, in the order they came up. */
-  const [missed, setMissed] = useState<Word[]>([]);
+  /** Every mistake this round, in order: what was asked and which wrong answer was picked. */
+  const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word }[]>([]);
+  /** A word's translations, in the languages chosen in Settings. */
+  const translation = (w: Word) => doorLabel(w, 'mt2x', show).join(' · ');
 
   const playAgain = () => {
     setRound((n) => n + 1);
     setStarted(false);
     setFinished(false);
     setTally({ ok: 0, bad: 0 });
-    setMissed([]);
+    setMistakes([]);
   };
 
   return (
@@ -445,18 +449,25 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
             </li>
           </ul>
 
-          {missed.length > 0 && (
+          {mistakes.length > 0 && (
             <div className="bee-missed">
-              <h2 className="eyebrow">Words to look at again</h2>
+              <h2 className="eyebrow">Your mistakes</h2>
               <ul className="wordlist">
-                {missed.map((w) => (
-                  <li key={w.id}>
+                {mistakes.map(({ word, chosen }, i) => (
+                  <li key={i}>
                     <div className="wordlist-text">
-                      <span className="wordlist-mt" lang="mt">
-                        {w.mt}
+                      {dir === 'mt2x' ? (
+                        <span className="wordlist-mt" lang="mt">
+                          {word.mt}
+                        </span>
+                      ) : (
+                        <span className="mistake-asked">{translation(word)}</span>
+                      )}
+                      <span className="mistake mistake-right">
+                        <b>✓</b> {dir === 'mt2x' ? translation(word) : <span lang="mt">{word.mt}</span>}
                       </span>
-                      <span className="wordlist-tr">
-                        <span lang="pl">{w.pl}</span> · <span lang="en">{w.en}</span>
+                      <span className="mistake mistake-wrong">
+                        <b>✗</b> you chose {dir === 'mt2x' ? translation(chosen) : <span lang="mt">{chosen.mt}</span>}
                       </span>
                     </div>
                   </li>
@@ -483,9 +494,9 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
             show={show}
             onStart={() => setStarted(true)}
             onCorrect={() => setTally((t) => ({ ...t, ok: t.ok + 1 }))}
-            onWrong={(word) => {
+            onWrong={(word, chosen) => {
               setTally((t) => ({ ...t, bad: t.bad + 1 }));
-              setMissed((list) => (list.includes(word) ? list : [...list, word]));
+              setMistakes((list) => [...list, { word, chosen }]);
             }}
           />
           <div className="bee-foot">
