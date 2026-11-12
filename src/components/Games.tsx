@@ -23,7 +23,7 @@ export function Games({ data, update, onPlay }: Props) {
     {
       id: 'typing',
       name: 'Infinite typing',
-      text: 'An endless random stream of words. See the Polish or English, type the Maltese.',
+      text: 'An endless random stream of words. See the Polish or English, spell the Maltese on a ten-letter pad.',
     },
     {
       id: 'pairs',

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { checkAnswer, type Verdict } from '../lib/answer';
+import { keyLabel, letterKeys } from '../lib/letters';
 import type { Grade } from '../lib/srs';
 import type { ShowLang } from '../lib/store';
 import type { Word } from '../lib/words';
@@ -21,6 +22,45 @@ interface TypeProps {
   onGrade: (grade: Grade) => void;
 }
 
+/** The question, and once it has been checked, the verdict and the right answer. */
+function QuestionCard({ word, show, verdict, typed }: { word: Word; show: ShowLang; verdict: Verdict | null; typed: string }) {
+  return (
+    <div className="card card-typing">
+      <p className="card-side">Translate into Maltese</p>
+      <Face word={word} side="x" show={show} />
+      {verdict && (
+        <div className="card-answer" role="status">
+          <p className={`verdict verdict-${verdict}`}>{VERDICT[verdict].title}</p>
+          <Face word={word} side="mt" show={show} />
+          {verdict !== 'correct' && typed !== '' && (
+            <p className="typed">
+              You typed <span lang="mt">{typed}</span>
+            </p>
+          )}
+          <Forms word={word} />
+          {word.note && <p className="card-note">{word.note}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultButtons({ verdict, onGrade }: { verdict: Verdict; onGrade: (grade: Grade) => void }) {
+  return (
+    <div className="result-actions">
+      {verdict !== 'correct' && (
+        <button className="btn btn-secondary" onClick={() => onGrade('knew')}>
+          I was right
+        </button>
+      )}
+      <button className="btn btn-primary" onClick={() => onGrade(VERDICT[verdict].grade)} autoFocus>
+        Continue
+      </button>
+    </div>
+  );
+}
+
+/** Typing with the device keyboard, plus a row of keys for the special Maltese letters. */
 export function TypeCard({ word, show, onGrade }: TypeProps) {
   const [value, setValue] = useState('');
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -57,36 +97,11 @@ export function TypeCard({ word, show, onGrade }: TypeProps) {
 
   return (
     <>
-      <div className="card card-typing">
-        <p className="card-side">Translate into Maltese</p>
-        <Face word={word} side="x" show={show} />
-        {verdict && (
-          <div className="card-answer" role="status">
-            <p className={`verdict verdict-${verdict}`}>{VERDICT[verdict].title}</p>
-            <Face word={word} side="mt" show={show} />
-            {verdict !== 'correct' && typed !== '' && (
-              <p className="typed">
-                You typed <span lang="mt">{typed}</span>
-              </p>
-            )}
-            <Forms word={word} />
-            {word.note && <p className="card-note">{word.note}</p>}
-          </div>
-        )}
-      </div>
+      <QuestionCard word={word} show={show} verdict={verdict} typed={typed} />
 
       <div className="actions">
         {verdict ? (
-          <div className="result-actions">
-            {verdict !== 'correct' && (
-              <button className="btn btn-secondary" onClick={() => onGrade('knew')}>
-                I was right
-              </button>
-            )}
-            <button className="btn btn-primary" onClick={() => onGrade(VERDICT[verdict].grade)} autoFocus>
-              Continue
-            </button>
-          </div>
+          <ResultButtons verdict={verdict} onGrade={onGrade} />
         ) : (
           <form className="type-form" onSubmit={check}>
             <input
@@ -127,6 +142,88 @@ export function TypeCard({ word, show, onGrade }: TypeProps) {
               </button>
             </div>
           </form>
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Typing on a letter pad instead of the device keyboard: ten keys holding the
+ * word's own letters and some decoys. A hardware keyboard still works.
+ */
+export function TileCard({ word, show, onGrade }: TypeProps) {
+  const [keys] = useState(() => letterKeys(word.mt));
+  // The answer so far, one entry per key press, so that backspace removes "għ" in one go.
+  const [typedKeys, setTypedKeys] = useState<string[]>([]);
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const typed = typedKeys.join('');
+
+  useEffect(() => {
+    if (verdict) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setVerdict(checkAnswer(typed, word.mt));
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        setTypedKeys((t) => t.slice(0, -1));
+      } else if (e.key.length === 1) {
+        e.preventDefault();
+        setTypedKeys((t) => [...t, e.key.toLowerCase()]);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [verdict, typed, word.mt]);
+
+  return (
+    <>
+      <QuestionCard word={word} show={show} verdict={verdict} typed={typed.trim()} />
+
+      <div className="actions">
+        {verdict ? (
+          <ResultButtons verdict={verdict} onGrade={onGrade} />
+        ) : (
+          <div className="type-form">
+            <div className="tile-entry">
+              <p className={`tile-display${typed ? '' : ' is-empty'}`} lang="mt" aria-live="polite" aria-label="Your answer">
+                {typed ? typedKeys.map(keyLabel).join('') : 'Tap the letters'}
+              </p>
+              <button
+                type="button"
+                className="key key-erase"
+                aria-label="Delete the last letter"
+                disabled={typedKeys.length === 0}
+                onClick={() => setTypedKeys((t) => t.slice(0, -1))}
+              >
+                ⌫
+              </button>
+            </div>
+            <div className="keys keys-pad" role="group" aria-label="Letters">
+              {keys.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  className="key"
+                  lang="mt"
+                  aria-label={k === ' ' ? 'space' : k}
+                  onClick={() => setTypedKeys((t) => [...t, k])}
+                >
+                  {keyLabel(k)}
+                </button>
+              ))}
+            </div>
+            <div className="result-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setVerdict('wrong')}>
+                Don’t know
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => setVerdict(checkAnswer(typed, word.mt))}>
+                Check
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </>

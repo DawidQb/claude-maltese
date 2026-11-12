@@ -672,7 +672,7 @@ select {
 }
 
 .card-typing {
-  min-height: 190px;
+  min-height: 160px;
 }
 
 .verdict {
@@ -756,6 +756,53 @@ select {
 
 .key:active {
   background: var(--surface-2);
+}
+
+/* Letter pad: typing without the device keyboard. */
+.keys-pad {
+  gap: 6px;
+}
+
+.keys-pad .key {
+  min-height: 50px;
+  font-size: 1.35rem;
+}
+
+.tile-entry {
+  display: grid;
+  grid-template-columns: 1fr 56px;
+  gap: 6px;
+}
+
+.tile-display {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.tile-display.is-empty {
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.key-erase {
+  font-family: var(--sans);
+}
+
+.key:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .result-actions {
