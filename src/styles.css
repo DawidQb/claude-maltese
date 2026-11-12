@@ -1020,6 +1020,12 @@ select {
   overflow-wrap: anywhere;
 }
 
+.mistake [lang='mt'] {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
 .mistake b {
   display: inline-block;
   width: 1.2em;

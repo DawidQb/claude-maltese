@@ -117,6 +117,8 @@ export function step(bee: Bee, dt: number, arena: Arena): WallEvent | null {
 /* ---------- Which words fit on a door ---------- */
 
 const MAX_LABEL = 18;
+/** The word being asked may be longer: it has the full width of the field. */
+const MAX_PROMPT = 28;
 
 /** The lines written next to a door for this word. */
 export function doorLabel(word: Word, dir: Direction, show: ShowLang): string[] {
@@ -124,7 +126,16 @@ export function doorLabel(word: Word, dir: Direction, show: ShowLang): string[] 
   return [...(show !== 'en' ? [word.pl] : []), ...(show !== 'pl' ? [word.en] : [])];
 }
 
-/** Words whose answer label is short enough to read at a glance while flying. */
+/** The lines shown at the top of the field for this word: the other side of `doorLabel`. */
+export function promptLabel(word: Word, dir: Direction, show: ShowLang): string[] {
+  return doorLabel(word, dir === 'x2mt' ? 'mt2x' : 'x2mt', show);
+}
+
+/** Words short enough to read at a glance while flying, both as a question and as a door label. */
 export function beeWords(words: readonly Word[], dir: Direction, show: ShowLang): Word[] {
-  return words.filter((w) => doorLabel(w, dir, show).every((line) => line.length <= MAX_LABEL));
+  return words.filter(
+    (w) =>
+      doorLabel(w, dir, show).every((line) => line.length <= MAX_LABEL) &&
+      promptLabel(w, dir, show).every((line) => line.length <= MAX_PROMPT),
+  );
 }

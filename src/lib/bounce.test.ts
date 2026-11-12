@@ -158,9 +158,13 @@ describe('nextSpeed', () => {
 
 describe('beeWords', () => {
   it('leaves out words whose label is too long to read while flying', () => {
+    // "gratulacje / wszystkiego najlepszego" is too long for a door and for the question strip.
     const long = WORDS.find((w) => w.id === 'awguri')!;
     expect(beeWords([long], 'mt2x', 'both')).toEqual([]);
-    expect(beeWords([long], 'x2mt', 'both')).toEqual([long]);
+    expect(beeWords([long], 'x2mt', 'both')).toEqual([]);
+    // Short in English, so it is fine when only English is shown.
+    const question = WORDS.find((w) => w.id === 'ma nafx')!;
+    expect(beeWords([question], 'x2mt', 'en')).toEqual([question]);
   });
 
   it('labels a door with the translations or the Maltese word, depending on direction', () => {

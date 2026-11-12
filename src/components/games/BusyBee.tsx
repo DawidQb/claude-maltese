@@ -408,7 +408,10 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
  * two doors, each labelled with an answer. Fly through the right one.
  */
 export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void }) {
-  const [{ topic, show, direction: dir }] = useState(data.settings);
+  const [{ topic, show }] = useState(data.settings);
+  // Always from Polish / English to Maltese, whatever direction the Study tab uses:
+  // the doors carry the Maltese words, which is the harder way round.
+  const dir: Direction = 'x2mt';
   const [pool] = useState(() => {
     const inTopic = beeWords(wordsInTopic(topic, data.settings), dir, show);
     // A topic can be left with too few short words; then play with the whole deck.
@@ -456,18 +459,12 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
                 {mistakes.map(({ word, chosen }, i) => (
                   <li key={i}>
                     <div className="wordlist-text">
-                      {dir === 'mt2x' ? (
-                        <span className="wordlist-mt" lang="mt">
-                          {word.mt}
-                        </span>
-                      ) : (
-                        <span className="mistake-asked">{translation(word)}</span>
-                      )}
+                      <span className="mistake-asked">{translation(word)}</span>
                       <span className="mistake mistake-right">
-                        <b>✓</b> {dir === 'mt2x' ? translation(word) : <span lang="mt">{word.mt}</span>}
+                        <b>✓</b> <span lang="mt">{word.mt}</span>
                       </span>
                       <span className="mistake mistake-wrong">
-                        <b>✗</b> you chose {dir === 'mt2x' ? translation(chosen) : <span lang="mt">{chosen.mt}</span>}
+                        <b>✗</b> you chose <span lang="mt">{chosen.mt}</span>
                       </span>
                     </div>
                   </li>
