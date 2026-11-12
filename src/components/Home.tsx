@@ -1,4 +1,4 @@
-import { cardKey, countDue, countNew, currentStreak, type Direction } from '../lib/srs';
+import { cardKey, countDue, countNew, type Direction } from '../lib/srs';
 import { newLeft, type AppData, type Settings, type Update } from '../lib/store';
 import { ALL_TOPICS, TOPICS, WORDS, wordsInTopic } from '../lib/words';
 
@@ -23,7 +23,6 @@ export function Home({ data, update, today, onStudy }: Props) {
   const due = countDue(base);
   const fresh = countNew({ ...base, newLeft: newLeft(data, dir, today) });
   const total = due + fresh;
-  const streak = currentStreak(data.streak, today);
 
   const boxes = words.map((w) => data.cards[cardKey(dir, w.id)]?.box ?? 0);
   const learning = boxes.filter((b) => b >= 1 && b <= 2).length;
@@ -90,10 +89,6 @@ export function Home({ data, update, today, onStudy }: Props) {
         <div className="tile">
           <span className="tile-num">{fresh}</span>
           <span className="tile-label">New words</span>
-        </div>
-        <div className="tile">
-          <span className="tile-num">{streak}</span>
-          <span className="tile-label">Day streak</span>
         </div>
       </section>
 

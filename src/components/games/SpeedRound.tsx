@@ -4,7 +4,7 @@ import type { AppData, Update } from '../../lib/store';
 import { wordsInTopic } from '../../lib/words';
 import { Face, TranslationLines } from '../Cards';
 import { DIRECTION_LABEL } from '../Home';
-import { GameShell } from './GameShell';
+import { GameShell, Tally } from './GameShell';
 
 const ROUND_MS = 60_000;
 const AFTER_CORRECT_MS = 250;
@@ -21,6 +21,7 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
   const [question, setQuestion] = useState<Question | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const [wrong, setWrong] = useState(0);
   const [remaining, setRemaining] = useState(ROUND_MS);
   // The record to beat, fixed when the round starts.
   const [bestBefore, setBestBefore] = useState(data.games.speedBest);
@@ -37,6 +38,7 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
   const start = () => {
     scoreRef.current = 0;
     setScore(0);
+    setWrong(0);
     setBestBefore(data.games.speedBest);
     endAt.current = Date.now() + ROUND_MS;
     setRemaining(ROUND_MS);
@@ -70,6 +72,8 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
     if (right) {
       scoreRef.current += 1;
       setScore(scoreRef.current);
+    } else {
+      setWrong((n) => n + 1);
     }
     nextTimer.current = window.setTimeout(ask, right ? AFTER_CORRECT_MS : AFTER_WRONG_MS);
   };
@@ -77,7 +81,7 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
   const seconds = Math.ceil(remaining / 1000);
 
   return (
-    <GameShell title="Speed round" status={phase === 'playing' ? `${score} right` : ''} onExit={onExit}>
+    <GameShell title="Speed round" status={phase === 'playing' ? <Tally ok={score} bad={wrong} /> : ''} onExit={onExit}>
       {phase === 'playing' && question && (
         <>
           <div className="timer">
@@ -128,7 +132,9 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
       {phase === 'over' && (
         <div className="card card-done" role="status">
           <p className="done-title">{score}</p>
-          <p className="done-text">{score === 1 ? 'right answer' : 'right answers'} in 60 seconds</p>
+          <p className="done-text">
+            {score === 1 ? 'right answer' : 'right answers'} in 60 seconds, {wrong} wrong
+          </p>
           <p className="muted">
             {score > bestBefore && bestBefore > 0
               ? `New best! Before: ${bestBefore}`

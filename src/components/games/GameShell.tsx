@@ -8,6 +8,16 @@ interface Props {
   children: ReactNode;
 }
 
+/** Successes and fails, side by side. The only score the games show. */
+export function Tally({ ok, bad }: { ok: number; bad: number }) {
+  return (
+    <span className="tally" role="img" aria-label={`${ok} correct, ${bad} wrong`}>
+      <span className="tally-ok">✓ {ok}</span>
+      <span className="tally-bad">✗ {bad}</span>
+    </span>
+  );
+}
+
 /** Full-screen frame shared by the games: back button, title, status. */
 export function GameShell({ title, status, onExit, children }: Props) {
   useEffect(() => {

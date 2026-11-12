@@ -7,7 +7,7 @@ Flashcards for memorising Maltese words through their Polish and English transla
 - Spaced repetition: words you know come back after 1, 3, 7, 14 and then 30 days; words you miss come back the same session.
 - 291 seed words in 12 topics; study everything or one topic at a time.
 - Typing mode (Polish/English → Maltese): write the Maltese word, with keys for ċ ġ għ ħ ż. Missing special letters or a single typo count as "almost".
-- Three practice games that never change the review schedule: infinite typing (an endless random stream), match pairs (untimed) and a 60-second speed round with four answer choices.
+- Three practice games that never change the review schedule and show only a count of right and wrong answers: infinite typing (an endless random stream), match pairs (untimed) and a 60-second speed round with four answer choices.
 - Installable and usable offline: add it to your home screen from the browser.
 - Progress lives in the browser's local storage. Use Settings → Export / Import to move it between devices.
 

@@ -3,7 +3,7 @@ import { makePairsRound } from '../../lib/games';
 import type { AppData } from '../../lib/store';
 import { wordsInTopic } from '../../lib/words';
 import { TranslationLines } from '../Cards';
-import { GameShell } from './GameShell';
+import { GameShell, Tally } from './GameShell';
 
 type Side = 'left' | 'right';
 const WRONG_FLASH_MS = 600;
@@ -16,6 +16,8 @@ export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void
   const [matched, setMatched] = useState<Set<string>>(() => new Set());
   const [picked, setPicked] = useState<{ left: string | null; right: string | null }>({ left: null, right: null });
   const [wrong, setWrong] = useState<{ left: string; right: string } | null>(null);
+  // Pairs found and wrong tries, counted across rounds.
+  const [score, setScore] = useState({ ok: 0, bad: 0 });
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -36,7 +38,9 @@ export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void
     }
     if (next.left === next.right) {
       setMatched((m) => new Set(m).add(id));
+      setScore((s) => ({ ...s, ok: s.ok + 1 }));
     } else {
+      setScore((s) => ({ ...s, bad: s.bad + 1 }));
       setWrong({ left: next.left, right: next.right });
       timer.current = window.setTimeout(() => setWrong(null), WRONG_FLASH_MS);
     }
@@ -56,7 +60,7 @@ export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void
       .join(' ');
 
   return (
-    <GameShell title="Match pairs" status={`${matched.size} / ${total}`} onExit={onExit}>
+    <GameShell title="Match pairs" status={<Tally ok={score.ok} bad={score.bad} />} onExit={onExit}>
       <div className="pairs">
         <div className="pairs-col" role="group" aria-label="Maltese">
           {round.left.map((w) => (
