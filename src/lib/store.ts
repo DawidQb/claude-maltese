@@ -31,6 +31,7 @@ export interface AppData {
   games: { speedBest: number };
 }
 
+// The key keeps the app's first name, Kelma: renaming it would orphan everyone's saved progress.
 const STORAGE_KEY = 'kelma:v1';
 
 export function emptyData(): AppData {

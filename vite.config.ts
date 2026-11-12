@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react';
 /** Emits sw.js with the list of built files, so the app can be saved for offline use. */
 function serviceWorker(): Plugin {
   return {
-    name: 'kelma-service-worker',
+    name: 'nahla-service-worker',
     apply: 'build',
     generateBundle(_options, bundle) {
       const built = Object.keys(bundle).filter((f) => f !== 'index.html' && !f.endsWith('.map'));

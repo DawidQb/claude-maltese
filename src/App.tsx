@@ -44,7 +44,7 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         <span className="brand" lang="mt">
-          kelma
+          naħla
         </span>
         <span className="brand-sub">Maltese flashcards</span>
       </header>

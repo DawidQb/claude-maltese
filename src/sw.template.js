@@ -1,5 +1,6 @@
 // Service worker template. The build fills in the version and the file list
 // (see vite.config.ts), then emits this as sw.js next to index.html.
+// The cache prefix keeps the app's first name, Kelma, so that old caches are still found and removed.
 const CACHE = 'kelma-__VERSION__';
 const PRECACHE = __PRECACHE__;
 const SHELL = new URL('./', self.location).href;

@@ -32,7 +32,7 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kelma-progress-${toISODate(new Date())}.json`;
+    a.download = `nahla-progress-${toISODate(new Date())}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setMessage('Progress file downloaded.');
@@ -45,7 +45,7 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
       update(() => parsed);
       setMessage(`Imported progress for ${Object.keys(parsed.cards).length} cards.`);
     } catch {
-      setMessage('That file is not a Kelma progress export.');
+      setMessage('That file is not a Naħla progress export.');
     }
   };
 
@@ -131,11 +131,11 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
         <h2 className="eyebrow">App</h2>
         <div className="panel">
           {installed ? (
-            <p className="muted">Kelma is installed on this device and works without a connection.</p>
+            <p className="muted">Naħla is installed on this device and works without a connection.</p>
           ) : (
             <>
               <p className="muted">
-                Install Kelma to open it from your home screen and study without a connection.
+                Install Naħla to open it from your home screen and study without a connection.
               </p>
               {install ? (
                 <div className="row">

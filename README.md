@@ -1,7 +1,7 @@
-# Kelma
+# Naħla
 
 Flashcards for memorising Maltese words through their Polish and English translations.
-*Kelma* is Maltese for "word".
+*Naħla* is Maltese for "bee".
 
 - Two directions, each with its own progress: Maltese → Polish/English and Polish/English → Maltese.
 - Spaced repetition: words you know come back after 1, 3, 7, 14 and then 30 days; words you miss come back the same session.
