@@ -10,8 +10,8 @@ const WRONG_FLASH_MS = 600;
 
 /** Tap a Maltese word and its translation to pair them. Untimed. */
 export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void }) {
-  const [{ topic, show }] = useState(data.settings);
-  const [words] = useState(() => wordsInTopic(topic));
+  const [{ topic, show, plurals }] = useState(data.settings);
+  const [words] = useState(() => wordsInTopic(topic, plurals));
   const [round, setRound] = useState(() => makePairsRound(words));
   const [matched, setMatched] = useState<Set<string>>(() => new Set());
   const [picked, setPicked] = useState<{ left: string | null; right: string | null }>({ left: null, right: null });

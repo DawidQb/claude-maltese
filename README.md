@@ -5,7 +5,7 @@ Flashcards for memorising Maltese words through their Polish and English transla
 
 - Two directions, each with its own progress: Maltese → Polish/English and Polish/English → Maltese.
 - Spaced repetition: words you know come back after 1, 3, 7, 14 and then 30 days; words you miss come back the same session.
-- 291 seed words in 12 topics; study everything or one topic at a time.
+- 713 words in 16 topics, plus 189 plural forms of nouns as cards of their own (they can be switched off in Settings). Study everything or one topic at a time.
 - Typing mode (Polish/English → Maltese): write the Maltese word, with keys for ċ ġ għ ħ ż. Missing special letters or a single typo count as "almost".
 - Three practice games that never change the review schedule and show only a count of right and wrong answers: infinite typing (an endless random stream), match pairs (untimed) and a 60-second speed round with four answer choices.
 - Installable and usable offline: add it to your home screen from the browser.
@@ -23,8 +23,16 @@ npm run build    # type-check and build to dist/
 ## Edit the words
 
 The deck is `src/data/words.json`: a list of topics, each with rows of
-`[Maltese, Polish, English]`. The Maltese word is the key for saved progress, so
-changing its spelling resets progress for that word.
+`[Maltese, Polish, English]`. A noun can carry its plural as a fourth item, itself a
+`[Maltese, Polish, English]` row:
+
+```json
+["ktieb", "książka", "book", ["kotba", "książki", "books"]]
+```
+
+The Maltese word is the key for saved progress, so changing its spelling resets progress
+for that word; moving a word to another topic does not. No Polish or English translation
+may appear twice in the deck (the tests check this), so every question has one answer.
 
 ## Offline support
 

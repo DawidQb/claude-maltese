@@ -3,7 +3,7 @@ import { requestPersistentStorage } from '../lib/install';
 import { buildSession, cardKey, type Direction, type Grade } from '../lib/srs';
 import { newLeft, recordAnswer, type AppData, type ShowLang, type Update } from '../lib/store';
 import { ALL_TOPICS, WORDS, wordsInTopic, type Word } from '../lib/words';
-import { Face, TypeCard } from './Cards';
+import { Face, Forms, TypeCard } from './Cards';
 import { DIRECTION_LABEL } from './Home';
 
 interface Props {
@@ -18,9 +18,9 @@ const EXTRA_NEW = 10;
 
 export function Study({ data, update, today, onExit }: Props) {
   // Direction, topic and answer mode are fixed for the whole session.
-  const [{ direction: dir, topic, typing: typingSetting, show }] = useState(data.settings);
+  const [{ direction: dir, topic, typing: typingSetting, show, plurals }] = useState(data.settings);
   const typing = dir === 'x2mt' && typingSetting;
-  const wordIds = useMemo(() => wordsInTopic(topic).map((w) => w.id), [topic]);
+  const wordIds = useMemo(() => wordsInTopic(topic, plurals).map((w) => w.id), [topic, plurals]);
 
   const [queue, setQueue] = useState<string[]>(() =>
     buildSession({ wordIds, cards: data.cards, dir, today, newLeft: newLeft(data, dir, today) }),
@@ -184,6 +184,7 @@ function FlipCard({ word, dir, show, onGrade }: FlipProps) {
         {revealed && (
           <div className="card-answer">
             <Face word={word} side={dir === 'mt2x' ? 'x' : 'mt'} show={show} />
+            <Forms word={word} />
             {word.note && <p className="card-note">{word.note}</p>}
           </div>
         )}

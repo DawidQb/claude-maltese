@@ -1,6 +1,6 @@
 import { cardKey, countDue, countNew, type Direction } from '../lib/srs';
 import { newLeft, type AppData, type Settings, type Update } from '../lib/store';
-import { ALL_TOPICS, TOPICS, WORDS, wordsInTopic } from '../lib/words';
+import { ALL_TOPICS, TOPICS, wordsInTopic } from '../lib/words';
 
 interface Props {
   data: AppData;
@@ -14,11 +14,23 @@ export const DIRECTION_LABEL: Record<Direction, string> = {
   x2mt: 'Polish / English → Maltese',
 };
 
-const TOPIC_SIZE = new Map(TOPICS.map((t) => [t, wordsInTopic(t).length]));
+/** The topic choices, with card counts that follow the plural-forms setting. */
+export function TopicOptions({ plurals }: { plurals: boolean }) {
+  return (
+    <>
+      <option value={ALL_TOPICS}>All topics ({wordsInTopic(ALL_TOPICS, plurals).length} cards)</option>
+      {TOPICS.map((t) => (
+        <option key={t} value={t}>
+          {t} ({wordsInTopic(t, plurals).length})
+        </option>
+      ))}
+    </>
+  );
+}
 
 export function Home({ data, update, today, onStudy }: Props) {
-  const { direction: dir, topic, typing } = data.settings;
-  const words = wordsInTopic(topic);
+  const { direction: dir, topic, typing, plurals } = data.settings;
+  const words = wordsInTopic(topic, plurals);
   const base = { wordIds: words.map((w) => w.id), cards: data.cards, dir, today };
   const due = countDue(base);
   const fresh = countNew({ ...base, newLeft: newLeft(data, dir, today) });
@@ -63,12 +75,7 @@ export function Home({ data, update, today, onStudy }: Props) {
             <label htmlFor="topic">Topic</label>
           </h2>
           <select id="topic" className="input" value={topic} onChange={(e) => set({ topic: e.target.value })}>
-            <option value={ALL_TOPICS}>All topics ({WORDS.length} words)</option>
-            {TOPICS.map((t) => (
-              <option key={t} value={t}>
-                {t} ({TOPIC_SIZE.get(t)})
-              </option>
-            ))}
+            <TopicOptions plurals={plurals} />
           </select>
         </div>
       </section>

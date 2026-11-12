@@ -10,7 +10,7 @@ import {
   currentStreak,
   type CardState,
 } from './srs';
-import { TOPICS, WORDS } from './words';
+import { ALL_TOPICS, TOPICS, WORDS, wordsInTopic } from './words';
 
 const TODAY = '2026-03-10';
 const same = <T,>(x: T[]) => x;
@@ -115,7 +115,32 @@ describe('seed deck', () => {
       expect(w.pl.trim(), w.id).not.toBe('');
       expect(w.en.trim(), w.id).not.toBe('');
     }
-    expect(WORDS.length).toBeGreaterThanOrEqual(200);
+    expect(WORDS.length).toBeGreaterThanOrEqual(800);
     expect(TOPICS.length).toBeGreaterThan(5);
+  });
+
+  it('never repeats a Polish or English translation, so no question has two right answers', () => {
+    expect(new Set(WORDS.map((w) => w.pl)).size).toBe(WORDS.length);
+    expect(new Set(WORDS.map((w) => w.en)).size).toBe(WORDS.length);
+  });
+
+  it('links each plural form to its singular, right after it in the same topic', () => {
+    const plurals = WORDS.filter((w) => w.pluralOf);
+    expect(plurals.length).toBeGreaterThan(150);
+    for (const p of plurals) {
+      const i = WORDS.indexOf(p);
+      const singular = WORDS[i - 1];
+      expect(singular.id, p.id).toBe(p.pluralOf);
+      expect(singular.plural, p.id).toBe(p.id);
+      expect(singular.topic, p.id).toBe(p.topic);
+    }
+  });
+
+  it('can leave plural forms out', () => {
+    const without = wordsInTopic('Home & things', false);
+    expect(without.some((w) => w.pluralOf)).toBe(false);
+    expect(without.find((w) => w.id === 'ktieb')?.plural).toBe('kotba');
+    expect(wordsInTopic('Home & things').length).toBeGreaterThan(without.length);
+    expect(wordsInTopic(ALL_TOPICS).length).toBe(WORDS.length);
   });
 });

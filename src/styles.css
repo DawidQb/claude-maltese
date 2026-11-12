@@ -595,6 +595,18 @@ select {
   animation: rise 0.18s ease;
 }
 
+.card-forms {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.card-forms span {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
 .card-note {
   max-width: 34ch;
   font-size: 0.85rem;
@@ -998,6 +1010,16 @@ select {
   font-size: 0.875rem;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.tag {
+  margin-left: 6px;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .badge {

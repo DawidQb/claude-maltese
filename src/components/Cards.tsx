@@ -69,6 +69,7 @@ export function TypeCard({ word, show, onGrade }: TypeProps) {
                 You typed <span lang="mt">{typed}</span>
               </p>
             )}
+            <Forms word={word} />
             {word.note && <p className="card-note">{word.note}</p>}
           </div>
         )}
@@ -155,6 +156,17 @@ export function Face({ word, side, show }: { word: Word; side: 'mt' | 'x'; show:
         </div>
       )}
     </dl>
+  );
+}
+
+/** The other number of a noun: the plural of a singular, or the singular of a plural. */
+export function Forms({ word }: { word: Word }) {
+  const other = word.plural ?? word.pluralOf;
+  if (!other) return null;
+  return (
+    <p className="card-forms">
+      {word.plural ? 'plural' : 'singular'}: <span lang="mt">{other}</span>
+    </p>
   );
 }
 

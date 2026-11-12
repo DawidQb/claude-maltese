@@ -15,15 +15,18 @@ function boxLabel(box: number): string {
 export function WordList({ data }: { data: AppData }) {
   const [query, setQuery] = useState('');
   const [topic, setTopic] = useState('all');
-  const dir = data.settings.direction;
+  const { direction: dir, plurals } = data.settings;
 
   const groups = useMemo(() => {
     const q = fold(query.trim());
-    const hits = INDEX.filter((e) => (topic === 'all' || e.word.topic === topic) && (q === '' || e.text.includes(q)));
+    const hits = INDEX.filter(
+      (e) =>
+        (plurals || !e.word.pluralOf) && (topic === 'all' || e.word.topic === topic) && (q === '' || e.text.includes(q)),
+    );
     return TOPICS.map((t) => ({ topic: t, words: hits.filter((e) => e.word.topic === t).map((e) => e.word) })).filter(
       (g) => g.words.length > 0,
     );
-  }, [query, topic]);
+  }, [query, topic, plurals]);
 
   const count = groups.reduce((n, g) => n + g.words.length, 0);
 
@@ -61,8 +64,11 @@ export function WordList({ data }: { data: AppData }) {
               return (
                 <li key={w.id}>
                   <div className="wordlist-text">
-                    <span className="wordlist-mt" lang="mt">
-                      {w.mt}
+                    <span>
+                      <span className="wordlist-mt" lang="mt">
+                        {w.mt}
+                      </span>
+                      {w.pluralOf && <span className="tag">plural</span>}
                     </span>
                     <span className="wordlist-tr">
                       <span lang="pl">{w.pl}</span> · <span lang="en">{w.en}</span>

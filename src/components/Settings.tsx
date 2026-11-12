@@ -81,6 +81,18 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
           </label>
           <label className="switch">
             <span>
+              Plural forms
+              <small>Study the plural of each noun as a card of its own</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.plurals}
+              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, plurals: e.target.checked } }))}
+            />
+          </label>
+          <label className="switch">
+            <span>
               Type the answer
               <small>In Polish / English → Maltese, write the word instead of flipping the card</small>
             </span>

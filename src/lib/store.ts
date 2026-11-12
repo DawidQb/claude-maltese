@@ -13,6 +13,8 @@ export interface Settings {
   topic: string;
   /** Type the Maltese word instead of flipping the card (Polish/English → Maltese only). */
   typing: boolean;
+  /** Include plural forms of nouns as cards of their own. */
+  plurals: boolean;
 }
 
 export interface AppData {
@@ -33,7 +35,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false, plurals: true },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0 },
@@ -64,6 +66,7 @@ export function sanitize(input: unknown): AppData | null {
     direction: s.direction === 'x2mt' ? 'x2mt' : 'mt2x',
     topic: typeof s.topic === 'string' && TOPICS.includes(s.topic) ? s.topic : ALL_TOPICS,
     typing: s.typing === true,
+    plurals: s.plurals !== false,
   };
 
   const st = (src.streak ?? {}) as Partial<Streak>;

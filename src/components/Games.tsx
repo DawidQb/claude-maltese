@@ -1,6 +1,5 @@
 import type { AppData, Update } from '../lib/store';
-import { ALL_TOPICS, TOPICS, WORDS, wordsInTopic } from '../lib/words';
-import { DIRECTION_LABEL } from './Home';
+import { DIRECTION_LABEL, TopicOptions } from './Home';
 
 export type GameId = 'typing' | 'pairs' | 'speed';
 
@@ -11,7 +10,7 @@ interface Props {
 }
 
 export function Games({ data, update, onPlay }: Props) {
-  const { topic, direction } = data.settings;
+  const { topic, direction, plurals } = data.settings;
   const best = data.games.speedBest;
 
   const games: { id: GameId; name: string; text: string; detail?: string }[] = [
@@ -45,12 +44,7 @@ export function Games({ data, update, onPlay }: Props) {
           value={topic}
           onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, topic: e.target.value } }))}
         >
-          <option value={ALL_TOPICS}>All topics ({WORDS.length} words)</option>
-          {TOPICS.map((t) => (
-            <option key={t} value={t}>
-              {t} ({wordsInTopic(t).length})
-            </option>
-          ))}
+          <TopicOptions plurals={plurals} />
         </select>
       </section>
 
