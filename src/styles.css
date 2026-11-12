@@ -1022,6 +1022,11 @@ select {
   color: var(--muted);
 }
 
+.tag-form {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .badge {
   flex: none;
   padding: 2px 8px;

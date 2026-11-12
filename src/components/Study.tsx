@@ -18,9 +18,10 @@ const EXTRA_NEW = 10;
 
 export function Study({ data, update, today, onExit }: Props) {
   // Direction, topic and answer mode are fixed for the whole session.
-  const [{ direction: dir, topic, typing: typingSetting, show, plurals }] = useState(data.settings);
+  const [settings] = useState(data.settings);
+  const { direction: dir, topic, typing: typingSetting, show } = settings;
   const typing = dir === 'x2mt' && typingSetting;
-  const wordIds = useMemo(() => wordsInTopic(topic, plurals).map((w) => w.id), [topic, plurals]);
+  const wordIds = useMemo(() => wordsInTopic(topic, settings).map((w) => w.id), [topic, settings]);
 
   const [queue, setQueue] = useState<string[]>(() =>
     buildSession({ wordIds, cards: data.cards, dir, today, newLeft: newLeft(data, dir, today) }),

@@ -159,13 +159,13 @@ export function Face({ word, side, show }: { word: Word; side: 'mt' | 'x'; show:
   );
 }
 
-/** The other number of a noun: the plural of a singular, or the singular of a plural. */
+/** The related form of a word: a noun's plural or singular, or the verb a conjugated form comes from. */
 export function Forms({ word }: { word: Word }) {
-  const other = word.plural ?? word.pluralOf;
+  const other = word.plural ?? word.pluralOf ?? word.formOf;
   if (!other) return null;
   return (
     <p className="card-forms">
-      {word.plural ? 'plural' : 'singular'}: <span lang="mt">{other}</span>
+      {word.plural ? 'plural' : word.pluralOf ? 'singular' : 'form of'}: <span lang="mt">{other}</span>
     </p>
   );
 }

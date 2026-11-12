@@ -12,11 +12,16 @@ export interface Word {
   plural?: string;
   /** On a plural form: the Maltese singular it belongs to. */
   pluralOf?: string;
+  /** On a conjugated verb form: the dictionary form of the verb. */
+  formOf?: string;
 }
 
 type Triple = [string, string, string];
-/** [Maltese, Polish, English] with an optional plural form as a fourth item. */
-type Row = Triple | [...Triple, Triple];
+/**
+ * [Maltese, Polish, English], optionally followed by a fourth item:
+ * the plural form as its own triple, or the verb a conjugated form belongs to.
+ */
+type Row = Triple | [...Triple, Triple] | [...Triple, string];
 
 interface RawTopic {
   topic: string;
@@ -26,10 +31,11 @@ interface RawTopic {
 
 /** Every card in deck order. A plural form is its own card, right after its singular. */
 export const WORDS: Word[] = (raw as unknown as RawTopic[]).flatMap((t) =>
-  t.words.flatMap(([mt, pl, en, plural]) => {
+  t.words.flatMap(([mt, pl, en, extra]) => {
     const base: Word = { id: mt, mt, pl, en, topic: t.topic, note: t.note };
-    if (!plural) return [base];
-    const [pmt, ppl, pen] = plural;
+    if (!extra) return [base];
+    if (typeof extra === 'string') return [{ ...base, formOf: extra }];
+    const [pmt, ppl, pen] = extra;
     return [
       { ...base, plural: pmt },
       { id: pmt, mt: pmt, pl: ppl, en: pen, topic: t.topic, note: t.note, pluralOf: mt },
@@ -41,6 +47,19 @@ export const TOPICS: string[] = (raw as unknown as RawTopic[]).map((t) => t.topi
 
 export const ALL_TOPICS = 'all';
 
-export function wordsInTopic(topic: string, plurals = true): Word[] {
-  return WORDS.filter((w) => (topic === ALL_TOPICS || w.topic === topic) && (plurals || !w.pluralOf));
+/** Which optional kinds of card to include. Both default to on. */
+export interface Include {
+  plurals?: boolean;
+  verbForms?: boolean;
+}
+
+export function wordsInTopic(topic: string, { plurals = true, verbForms = true }: Include = {}): Word[] {
+  return WORDS.filter(
+    (w) => (topic === ALL_TOPICS || w.topic === topic) && (plurals || !w.pluralOf) && (verbForms || !w.formOf),
+  );
+}
+
+/** Topics that still have cards with these choices (a topic of only verb forms can empty out). */
+export function topicsWith(include: Include): string[] {
+  return TOPICS.filter((t) => wordsInTopic(t, include).length > 0);
 }

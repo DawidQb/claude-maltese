@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function Games({ data, update, onPlay }: Props) {
-  const { topic, direction, plurals } = data.settings;
+  const { topic, direction } = data.settings;
   const best = data.games.speedBest;
 
   const games: { id: GameId; name: string; text: string; detail?: string }[] = [
@@ -44,7 +44,7 @@ export function Games({ data, update, onPlay }: Props) {
           value={topic}
           onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, topic: e.target.value } }))}
         >
-          <TopicOptions plurals={plurals} />
+          <TopicOptions include={data.settings} />
         </select>
       </section>
 

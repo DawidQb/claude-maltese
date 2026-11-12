@@ -10,7 +10,7 @@ import {
   currentStreak,
   type CardState,
 } from './srs';
-import { ALL_TOPICS, TOPICS, WORDS, wordsInTopic } from './words';
+import { ALL_TOPICS, TOPICS, WORDS, topicsWith, wordsInTopic } from './words';
 
 const TODAY = '2026-03-10';
 const same = <T,>(x: T[]) => x;
@@ -137,10 +137,25 @@ describe('seed deck', () => {
   });
 
   it('can leave plural forms out', () => {
-    const without = wordsInTopic('Home & things', false);
+    const without = wordsInTopic('Home & things', { plurals: false });
     expect(without.some((w) => w.pluralOf)).toBe(false);
     expect(without.find((w) => w.id === 'ktieb')?.plural).toBe('kotba');
     expect(wordsInTopic('Home & things').length).toBeGreaterThan(without.length);
     expect(wordsInTopic(ALL_TOPICS).length).toBe(WORDS.length);
+  });
+
+  it('links every verb form to a verb in the Verbs topic', () => {
+    const verbs = new Set(wordsInTopic('Verbs').map((w) => w.id));
+    const forms = WORDS.filter((w) => w.formOf);
+    expect(forms.length).toBeGreaterThan(300);
+    for (const f of forms) expect(verbs.has(f.formOf!), f.id).toBe(true);
+    // Every verb has at least one form.
+    expect(new Set(forms.map((f) => f.formOf))).toEqual(verbs);
+  });
+
+  it('can leave verb forms out, which removes that topic', () => {
+    expect(wordsInTopic(ALL_TOPICS, { verbForms: false }).some((w) => w.formOf)).toBe(false);
+    expect(topicsWith({ verbForms: false })).not.toContain('Verb forms');
+    expect(topicsWith({})).toContain('Verb forms');
   });
 });

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { cardKey } from '../lib/srs';
 import type { AppData } from '../lib/store';
 import { fold } from '../lib/text';
-import { TOPICS, WORDS } from '../lib/words';
+import { TOPICS, WORDS, topicsWith } from '../lib/words';
 import { DIRECTION_LABEL } from './Home';
 
 const INDEX = WORDS.map((w) => ({ word: w, text: fold(`${w.mt} ${w.pl} ${w.en}`) }));
@@ -15,18 +15,22 @@ function boxLabel(box: number): string {
 export function WordList({ data }: { data: AppData }) {
   const [query, setQuery] = useState('');
   const [topic, setTopic] = useState('all');
-  const { direction: dir, plurals } = data.settings;
+  const { direction: dir, plurals, verbForms } = data.settings;
+  const topics = topicsWith(data.settings);
 
   const groups = useMemo(() => {
     const q = fold(query.trim());
     const hits = INDEX.filter(
       (e) =>
-        (plurals || !e.word.pluralOf) && (topic === 'all' || e.word.topic === topic) && (q === '' || e.text.includes(q)),
+        (plurals || !e.word.pluralOf) &&
+        (verbForms || !e.word.formOf) &&
+        (topic === 'all' || e.word.topic === topic) &&
+        (q === '' || e.text.includes(q)),
     );
     return TOPICS.map((t) => ({ topic: t, words: hits.filter((e) => e.word.topic === t).map((e) => e.word) })).filter(
       (g) => g.words.length > 0,
     );
-  }, [query, topic, plurals]);
+  }, [query, topic, plurals, verbForms]);
 
   const count = groups.reduce((n, g) => n + g.words.length, 0);
 
@@ -43,7 +47,7 @@ export function WordList({ data }: { data: AppData }) {
         />
         <select className="input" aria-label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)}>
           <option value="all">All topics</option>
-          {TOPICS.map((t) => (
+          {topics.map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
@@ -69,6 +73,11 @@ export function WordList({ data }: { data: AppData }) {
                         {w.mt}
                       </span>
                       {w.pluralOf && <span className="tag">plural</span>}
+                      {w.formOf && (
+                        <span className="tag tag-form">
+                          form of <span lang="mt">{w.formOf}</span>
+                        </span>
+                      )}
                     </span>
                     <span className="wordlist-tr">
                       <span lang="pl">{w.pl}</span> · <span lang="en">{w.en}</span>

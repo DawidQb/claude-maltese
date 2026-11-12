@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { isInstalled, useInstallPrompt } from '../lib/install';
 import { toISODate } from '../lib/srs';
 import { emptyData, sanitize, type AppData, type ShowLang, type Update } from '../lib/store';
+import { ALL_TOPICS, wordsInTopic, type Include } from '../lib/words';
 
 const SHOW_OPTIONS: { value: ShowLang; label: string }[] = [
   { value: 'both', label: 'Polish + English' },
@@ -17,6 +18,14 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
   const learned = Object.keys(data.cards).length;
   const install = useInstallPrompt();
   const [installed] = useState(isInstalled);
+
+  /** Switches a kind of card on or off. If that empties the chosen topic, falls back to all topics. */
+  const include = (patch: Include) =>
+    update((d) => {
+      const settings = { ...d.settings, ...patch };
+      if (wordsInTopic(settings.topic, settings).length === 0) settings.topic = ALL_TOPICS;
+      return { ...d, settings };
+    });
 
   const exportProgress = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -88,7 +97,19 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
               type="checkbox"
               role="switch"
               checked={data.settings.plurals}
-              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, plurals: e.target.checked } }))}
+              onChange={(e) => include({ plurals: e.target.checked })}
+            />
+          </label>
+          <label className="switch">
+            <span>
+              Verb forms
+              <small>Study conjugated forms such as “he eats” and “we danced”</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.verbForms}
+              onChange={(e) => include({ verbForms: e.target.checked })}
             />
           </label>
           <label className="switch">

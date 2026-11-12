@@ -11,13 +11,23 @@ export function shuffle<T>(items: readonly T[], rng: Rng = Math.random): T[] {
   return a;
 }
 
+/** A missed word comes back no sooner than this many turns later… */
+const REPEAT_AFTER = 8;
+/** …and repeats are at least this many turns apart, so most turns are fresh words. */
+const REPEAT_GAP = 4;
+
 /**
  * An endless supply of words in random order. Every word comes up once before
- * any repeats, and the same word never appears twice in a row.
+ * the deck starts again, and the same word never appears twice in a row.
+ * Missed words are brought back later, but only now and then: however many
+ * are missed, at least three turns in four are words from the deck.
  */
 export class WordStream {
   private bag: Word[] = [];
   private last: Word | null = null;
+  private turn = 0;
+  private lastRepeat = -REPEAT_GAP;
+  private missed: { word: Word; at: number }[] = [];
 
   constructor(
     private readonly words: readonly Word[],
@@ -25,6 +35,14 @@ export class WordStream {
   ) {}
 
   next(): Word {
+    this.turn += 1;
+    const due = this.missed[0];
+    if (due && due.at <= this.turn && this.turn - this.lastRepeat >= REPEAT_GAP && due.word !== this.last) {
+      this.missed.shift();
+      this.lastRepeat = this.turn;
+      this.last = due.word;
+      return due.word;
+    }
     if (this.bag.length === 0) {
       this.bag = shuffle(this.words, this.rng);
       if (this.bag.length > 1 && this.bag[0] === this.last) {
@@ -35,10 +53,10 @@ export class WordStream {
     return this.last;
   }
 
-  /** Brings a missed word back a few turns later. */
-  repeatSoon(word: Word, after = 3): void {
-    if (this.bag.includes(word)) return;
-    this.bag.splice(Math.min(after, this.bag.length), 0, word);
+  /** Queues a missed word to come back later. */
+  repeatLater(word: Word): void {
+    if (this.missed.some((m) => m.word === word)) return;
+    this.missed.push({ word, at: this.turn + REPEAT_AFTER });
   }
 }
 

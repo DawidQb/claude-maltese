@@ -24,7 +24,8 @@ describe('shuffle', () => {
 
 describe('WordStream', () => {
   it('shows every word once before repeating, and never the same word twice in a row', () => {
-    const words = wordsInTopic('Body');
+    const words = wordsInTopic('Body & health');
+    expect(words.length).toBeGreaterThan(10);
     const stream = new WordStream(words, seeded(7));
     const seen: Word[] = [];
     for (let i = 0; i < words.length * 20; i++) seen.push(stream.next());
@@ -33,14 +34,33 @@ describe('WordStream', () => {
     for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
   });
 
-  it('brings a missed word back within a few turns', () => {
-    const words = wordsInTopic('Numbers');
-    const stream = new WordStream(words, seeded(3));
+  it('brings a missed word back later, not straight away', () => {
+    const stream = new WordStream(WORDS, seeded(3));
     const missed = stream.next();
-    stream.repeatSoon(missed);
-    const upcoming = [stream.next(), stream.next(), stream.next(), stream.next()];
+    stream.repeatLater(missed);
+    const upcoming = Array.from({ length: 12 }, () => stream.next());
+    expect(upcoming.slice(0, 7)).not.toContain(missed);
     expect(upcoming).toContain(missed);
-    expect(upcoming[0]).not.toBe(missed);
+  });
+
+  it('keeps moving through the deck even when every word is missed', () => {
+    const stream = new WordStream(WORDS, seeded(9));
+    const seen: Word[] = [];
+    for (let i = 0; i < 200; i++) {
+      const w = stream.next();
+      seen.push(w);
+      stream.repeatLater(w);
+    }
+    // At most one turn in four is a repeat, so at least 150 of 200 are different words.
+    expect(new Set(seen).size).toBeGreaterThanOrEqual(150);
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
+  });
+
+  it('eventually shows every card in the deck', () => {
+    const stream = new WordStream(WORDS, seeded(4));
+    const seen = new Set<Word>();
+    for (let i = 0; i < WORDS.length; i++) seen.add(stream.next());
+    expect(seen.size).toBe(WORDS.length);
   });
 
   it('works with a single word', () => {

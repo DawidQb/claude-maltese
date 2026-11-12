@@ -14,8 +14,8 @@ type Phase = 'ready' | 'playing' | 'over';
 
 /** 60 seconds of four-choice questions, in the direction chosen on the Study tab. */
 export function SpeedRound({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
-  const [{ topic, show, direction: dir, plurals }] = useState(data.settings);
-  const [words] = useState(() => wordsInTopic(topic, plurals));
+  const [{ topic, show, direction: dir }] = useState(data.settings);
+  const [words] = useState(() => wordsInTopic(topic, data.settings));
   const [stream] = useState(() => new WordStream(words));
   const [phase, setPhase] = useState<Phase>('ready');
   const [question, setQuestion] = useState<Question | null>(null);
