@@ -23,6 +23,8 @@ export interface AppData {
   streak: Streak;
   /** New words first seen on `date`, per direction. */
   introduced: { date: string; mt2x: number; x2mt: number };
+  /** Minigame records. Games never change the review schedule. */
+  games: { speedBest: number };
 }
 
 const STORAGE_KEY = 'kelma:v1';
@@ -34,6 +36,7 @@ export function emptyData(): AppData {
     settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
+    games: { speedBest: 0 },
   };
 }
 
@@ -75,7 +78,10 @@ export function sanitize(input: unknown): AppData | null {
       ? { date: intro.date, mt2x: intro.mt2x, x2mt: intro.x2mt }
       : base.introduced;
 
-  return { version: 1, cards, settings, streak, introduced };
+  const g = (src.games ?? {}) as Partial<AppData['games']>;
+  const games = { speedBest: typeof g.speedBest === 'number' && g.speedBest > 0 ? Math.round(g.speedBest) : 0 };
+
+  return { version: 1, cards, settings, streak, introduced, games };
 }
 
 export function loadData(): AppData {

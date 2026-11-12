@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { Games, type GameId } from './components/Games';
+import { InfiniteTyping } from './components/games/InfiniteTyping';
+import { MatchPairs } from './components/games/MatchPairs';
+import { SpeedRound } from './components/games/SpeedRound';
 import { Home } from './components/Home';
 import { Settings } from './components/Settings';
 import { Study } from './components/Study';
@@ -6,10 +10,11 @@ import { WordList } from './components/WordList';
 import { toISODate } from './lib/srs';
 import { useStore } from './lib/store';
 
-type Tab = 'home' | 'words' | 'settings';
+type Tab = 'home' | 'games' | 'words' | 'settings';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'home', label: 'Study' },
+  { id: 'games', label: 'Games' },
   { id: 'words', label: 'Words' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -17,13 +22,18 @@ const TABS: { id: Tab; label: string }[] = [
 export function App() {
   const [data, update] = useStore();
   const [tab, setTab] = useState<Tab>('home');
-  const [studying, setStudying] = useState(false);
+  // A study session or a game takes over the whole screen.
+  const [activity, setActivity] = useState<'study' | GameId | null>(null);
+  const close = useCallback(() => setActivity(null), []);
   const today = toISODate(new Date());
 
-  if (studying) {
+  if (activity) {
     return (
       <div className="shell">
-        <Study data={data} update={update} today={today} onExit={() => setStudying(false)} />
+        {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
+        {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
+        {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
+        {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
       </div>
     );
   }
@@ -38,7 +48,8 @@ export function App() {
       </header>
 
       <main className="content">
-        {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setStudying(true)} />}
+        {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setActivity('study')} />}
+        {tab === 'games' && <Games data={data} update={update} onPlay={setActivity} />}
         {tab === 'words' && <WordList data={data} />}
         {tab === 'settings' && <Settings data={data} update={update} />}
       </main>

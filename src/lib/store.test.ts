@@ -60,6 +60,12 @@ describe('sanitize', () => {
     expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', topic: 'all', typing: false });
   });
 
+  it('keeps the speed-round record and ignores a broken one', () => {
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 17 } })?.games).toEqual({ speedBest: 17 });
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 'lots' } })?.games).toEqual({ speedBest: 0 });
+    expect(sanitize({ version: 1, cards: {} })?.games).toEqual({ speedBest: 0 });
+  });
+
   it('keeps a valid topic and the typing switch', () => {
     const out = sanitize({ version: 1, cards: {}, settings: { topic: 'Numbers', typing: true } });
     expect(out?.settings.topic).toBe('Numbers');
