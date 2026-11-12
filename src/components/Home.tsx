@@ -1,6 +1,6 @@
 import { cardKey, countDue, countNew, currentStreak, type Direction } from '../lib/srs';
-import { newLeft, type AppData, type Update } from '../lib/store';
-import { WORDS } from '../lib/words';
+import { newLeft, type AppData, type Settings, type Update } from '../lib/store';
+import { ALL_TOPICS, TOPICS, WORDS, wordsInTopic } from '../lib/words';
 
 interface Props {
   data: AppData;
@@ -9,41 +9,68 @@ interface Props {
   onStudy: () => void;
 }
 
-const WORD_IDS = WORDS.map((w) => w.id);
-
 export const DIRECTION_LABEL: Record<Direction, string> = {
   mt2x: 'Maltese → Polish / English',
   x2mt: 'Polish / English → Maltese',
 };
 
+const TOPIC_SIZE = new Map(TOPICS.map((t) => [t, wordsInTopic(t).length]));
+
 export function Home({ data, update, today, onStudy }: Props) {
-  const dir = data.settings.direction;
-  const base = { wordIds: WORD_IDS, cards: data.cards, dir, today };
+  const { direction: dir, topic, typing } = data.settings;
+  const words = wordsInTopic(topic);
+  const base = { wordIds: words.map((w) => w.id), cards: data.cards, dir, today };
   const due = countDue(base);
   const fresh = countNew({ ...base, newLeft: newLeft(data, dir, today) });
   const total = due + fresh;
   const streak = currentStreak(data.streak, today);
 
-  const boxes = WORDS.map((w) => data.cards[cardKey(dir, w.id)]?.box ?? 0);
+  const boxes = words.map((w) => data.cards[cardKey(dir, w.id)]?.box ?? 0);
   const learning = boxes.filter((b) => b >= 1 && b <= 2).length;
   const known = boxes.filter((b) => b >= 3).length;
-  const unseen = WORDS.length - learning - known;
-  const pct = (n: number) => `${(n / WORDS.length) * 100}%`;
+  const unseen = words.length - learning - known;
+  const pct = (n: number) => `${(n / words.length) * 100}%`;
 
-  const setDirection = (direction: Direction) => update((d) => ({ ...d, settings: { ...d.settings, direction } }));
+  const set = (patch: Partial<Settings>) => update((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
 
   return (
     <div className="stack">
-      <section aria-labelledby="dir-label">
-        <h2 id="dir-label" className="eyebrow">
-          Direction
-        </h2>
-        <div className="segmented" role="group" aria-labelledby="dir-label">
-          {(['mt2x', 'x2mt'] as Direction[]).map((d) => (
-            <button key={d} aria-pressed={dir === d} onClick={() => setDirection(d)}>
-              {DIRECTION_LABEL[d]}
-            </button>
-          ))}
+      <section className="setup" aria-label="Session setup">
+        <div>
+          <h2 id="dir-label" className="eyebrow">
+            Direction
+          </h2>
+          <div className="segmented" role="group" aria-labelledby="dir-label">
+            {(['mt2x', 'x2mt'] as Direction[]).map((d) => (
+              <button key={d} aria-pressed={dir === d} onClick={() => set({ direction: d })}>
+                {DIRECTION_LABEL[d]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {dir === 'x2mt' && (
+          <label className="switch">
+            <span>
+              Type the answer
+              <small>Write the Maltese word instead of flipping the card</small>
+            </span>
+            <input type="checkbox" role="switch" checked={typing} onChange={(e) => set({ typing: e.target.checked })} />
+          </label>
+        )}
+
+        <div>
+          <h2 className="eyebrow">
+            <label htmlFor="topic">Topic</label>
+          </h2>
+          <select id="topic" className="input" value={topic} onChange={(e) => set({ topic: e.target.value })}>
+            <option value={ALL_TOPICS}>All topics ({WORDS.length} words)</option>
+            {TOPICS.map((t) => (
+              <option key={t} value={t}>
+                {t} ({TOPIC_SIZE.get(t)})
+              </option>
+            ))}
+          </select>
         </div>
       </section>
 
@@ -72,7 +99,7 @@ export function Home({ data, update, today, onStudy }: Props) {
 
       <section aria-labelledby="progress-label">
         <h2 id="progress-label" className="eyebrow">
-          Progress in this direction
+          Progress · {topic === ALL_TOPICS ? 'all topics' : topic}
         </h2>
         <div className="bar" role="img" aria-label={`${known} known, ${learning} learning, ${unseen} not started`}>
           <span className="bar-known" style={{ width: pct(known) }} />

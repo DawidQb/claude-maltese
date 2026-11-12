@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { isInstalled, useInstallPrompt } from '../lib/install';
 import { toISODate } from '../lib/srs';
 import { emptyData, sanitize, type AppData, type ShowLang, type Update } from '../lib/store';
 
@@ -14,6 +15,8 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const learned = Object.keys(data.cards).length;
+  const install = useInstallPrompt();
+  const [installed] = useState(isInstalled);
 
   const exportProgress = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -76,6 +79,51 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
               ))}
             </select>
           </label>
+          <label className="switch">
+            <span>
+              Type the answer
+              <small>In Polish / English → Maltese, write the word instead of flipping the card</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.typing}
+              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, typing: e.target.checked } }))}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="eyebrow">App</h2>
+        <div className="panel">
+          {installed ? (
+            <p className="muted">Kelma is installed on this device and works without a connection.</p>
+          ) : (
+            <>
+              <p className="muted">
+                Install Kelma to open it from your home screen and study without a connection.
+              </p>
+              {install ? (
+                <div className="row">
+                  <button className="btn btn-secondary" onClick={install}>
+                    Install app
+                  </button>
+                </div>
+              ) : (
+                <ul className="steps">
+                  <li>
+                    <strong>iPhone / iPad:</strong> in Safari tap Share, then “Add to Home Screen”. The installed app starts
+                    with empty progress, so export here first and import there.
+                  </li>
+                  <li>
+                    <strong>Android / computer:</strong> open the browser menu and choose “Install app” or “Add to Home
+                    screen”.
+                  </li>
+                </ul>
+              )}
+            </>
+          )}
         </div>
       </section>
 

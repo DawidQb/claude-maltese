@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { applyGrade, bumpStreak, cardKey, type CardState, type Direction, type Grade, type Streak } from './srs';
+import { ALL_TOPICS, TOPICS } from './words';
 
 export type ShowLang = 'both' | 'pl' | 'en';
 
@@ -8,6 +9,10 @@ export interface Settings {
   /** Which translations appear on the card. */
   show: ShowLang;
   direction: Direction;
+  /** A topic name, or ALL_TOPICS. */
+  topic: string;
+  /** Type the Maltese word instead of flipping the card (Polish/English → Maltese only). */
+  typing: boolean;
 }
 
 export interface AppData {
@@ -26,7 +31,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x' },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
   };
@@ -54,6 +59,8 @@ export function sanitize(input: unknown): AppData | null {
     newPerDay: typeof s.newPerDay === 'number' && s.newPerDay >= 0 ? Math.min(50, Math.round(s.newPerDay)) : base.settings.newPerDay,
     show: s.show === 'pl' || s.show === 'en' || s.show === 'both' ? s.show : base.settings.show,
     direction: s.direction === 'x2mt' ? 'x2mt' : 'mt2x',
+    topic: typeof s.topic === 'string' && TOPICS.includes(s.topic) ? s.topic : ALL_TOPICS,
+    typing: s.typing === true,
   };
 
   const st = (src.streak ?? {}) as Partial<Streak>;

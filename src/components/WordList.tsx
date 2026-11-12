@@ -1,18 +1,9 @@
 import { useMemo, useState } from 'react';
 import { cardKey } from '../lib/srs';
 import type { AppData } from '../lib/store';
+import { fold } from '../lib/text';
 import { TOPICS, WORDS } from '../lib/words';
 import { DIRECTION_LABEL } from './Home';
-
-/** Lets "hobz" find "ħobż" and "zolty" find "żółty". */
-export function fold(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/ħ/g, 'h')
-    .replace(/ł/g, 'l')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
-}
 
 const INDEX = WORDS.map((w) => ({ word: w, text: fold(`${w.mt} ${w.pl} ${w.en}`) }));
 

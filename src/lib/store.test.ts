@@ -49,9 +49,20 @@ describe('sanitize', () => {
         'other:ilma': { box: 1, due: '2026-03-11' },
         'x2mt:dar': { box: 2, due: 'soon' },
       },
-      settings: { newPerDay: -4, show: 'de', direction: 'x2mt' },
+      settings: { newPerDay: -4, show: 'de', direction: 'x2mt', topic: 'Dinosaurs', typing: 'yes' },
     });
     expect(out?.cards).toEqual({ 'mt2x:ilma': { box: 5, due: '2026-03-11' } });
-    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt' });
+    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', topic: 'all', typing: false });
+  });
+
+  it('fills in settings added after a progress file was saved', () => {
+    const out = sanitize({ version: 1, cards: {}, settings: { newPerDay: 5, show: 'pl', direction: 'mt2x' } });
+    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', topic: 'all', typing: false });
+  });
+
+  it('keeps a valid topic and the typing switch', () => {
+    const out = sanitize({ version: 1, cards: {}, settings: { topic: 'Numbers', typing: true } });
+    expect(out?.settings.topic).toBe('Numbers');
+    expect(out?.settings.typing).toBe(true);
   });
 });

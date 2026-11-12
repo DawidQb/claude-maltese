@@ -21,3 +21,9 @@ export const WORDS: Word[] = (raw as RawTopic[]).flatMap((t) =>
 );
 
 export const TOPICS: string[] = (raw as RawTopic[]).map((t) => t.topic);
+
+export const ALL_TOPICS = 'all';
+
+export function wordsInTopic(topic: string): Word[] {
+  return topic === ALL_TOPICS ? WORDS : WORDS.filter((w) => w.topic === topic);
+}
