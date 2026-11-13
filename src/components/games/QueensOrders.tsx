@@ -11,11 +11,12 @@ import {
   type Verb,
 } from '../../lib/court';
 import type { Question } from '../../lib/games';
-import { wakeSound } from '../../lib/sound';
+import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { WORDS, type Word } from '../../lib/words';
 import { TranslationLines } from '../Cards';
 import { DIRECTION_LABEL } from '../Home';
+import { drawBee, readColors, type Colors } from './beeArt';
 import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
 
 /** After a right answer the field stands still this long before the next order. */
@@ -31,6 +32,26 @@ const LANE_GAP_PX = 28;
 const WORKER_HEIGHT_GUESS = 48;
 /** The longest step the clock takes in one frame, so a slow frame never throws the workers forward. */
 const MAX_STEP_MS = 50;
+
+/* Effects. None of them changes the rules: an answer counts at the tap, the rest is decoration. */
+/** The worker bee over each button, and the queen, 1.6 times its size. */
+const BEE_RADIUS = 9;
+const QUEEN_RADIUS = BEE_RADIUS * 1.6;
+/** The room kept for the queen at the left of her strip; matches the strip's padding in the CSS. */
+const QUEEN_ROOM_PX = 64;
+/** The right worker's bee flies up to the queen in this long. */
+const FLY_MS = 250;
+/** The queen shakes this long after a miss. */
+const SHAKE_MS = 320;
+/** Vibration after a miss, in ms. */
+const BUZZ_MS = 40;
+const MAX_PARTICLES = 60;
+const PARTICLE_GRAVITY = 500;
+/** Dots thrown where the right form is delivered. */
+const BURST = { count: 16, speed: 170, life: 520, r: 3 };
+
+/** Eases from 0 to 1, gently at both ends. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
 
 /** One audience as planned when the run starts: a verb and the forms it will ask. */
 export interface Audience {
@@ -64,6 +85,57 @@ interface Court {
   asked: Map<string, boolean>;
   /** The worker tapped for this order, if any. */
   chosen: string | null;
+  /** When the last delivery and the last miss happened, for their effects. */
+  deliveredAt: number;
+  missedAt: number;
+  /** The audience whose banner has sounded, so it sounds once. */
+  announced: number;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  born: number;
+  life: number;
+  r: number;
+}
+
+/** A hexagon with flat sides left and right (pointy top), as a path. */
+function hexPath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath();
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI / 6 + (k * Math.PI) / 3;
+    ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+/** A small crown of three points on the head of a bee drawn by `drawBee` with the same arguments. */
+function drawCrown(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, facing: 1 | -1, tilt: number, colors: Colors) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(facing, 1);
+  ctx.rotate(tilt);
+  const base = -r * 0.5;
+  const left = r * 0.62;
+  const width = r * 0.8;
+  ctx.beginPath();
+  ctx.moveTo(left, base);
+  for (let k = 0; k < 3; k++) {
+    const x0 = left + (k * width) / 3;
+    ctx.lineTo(x0 + width / 6, base - r * 0.5);
+    ctx.lineTo(x0 + width / 3, base);
+  }
+  ctx.closePath();
+  ctx.fillStyle = colors.honey;
+  ctx.fill();
+  ctx.strokeStyle = '#2a2420';
+  ctx.lineWidth = 1;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.restore();
 }
 
 interface FieldProps {
@@ -104,10 +176,12 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
   soundOn.current = sound;
 
   const fieldRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   /** The element of each worker, by form id. */
   const els = useRef(new Map<string, HTMLElement>());
   const workerH = useRef(WORKER_HEIGHT_GUESS);
+  const motion = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const court = useRef<Court>(null as unknown as Court);
   if (!court.current) {
@@ -124,6 +198,9 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
       run: 0,
       asked: new Map(),
       chosen: null,
+      deliveredAt: -Infinity,
+      missedAt: -Infinity,
+      announced: -1,
     };
   }
 
@@ -169,6 +246,35 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
 
   useEffect(() => {
     const g = court.current;
+    const field = fieldRef.current!;
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
+    let colors: Colors = readColors();
+    let particles: Particle[] = [];
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMotion = () => (motion.current = motionQuery.matches);
+    motionQuery.addEventListener('change', onMotion);
+    const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const onScheme = () => (colors = readColors());
+    scheme.addEventListener('change', onScheme);
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(field.clientWidth * dpr);
+      canvas.height = Math.round(field.clientHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(field);
+    resize();
+
+    /** A sound, and with it a buzz on phones that can; both off with the sound switch. */
+    const feedback = (name: Sound, buzz = 0) => {
+      if (!soundOn.current) return;
+      playSound(name);
+      if (buzz) navigator.vibrate?.(buzz);
+    };
 
     /* ---------- rules ---------- */
 
@@ -180,6 +286,14 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
       g.index = 0;
       g.order = null;
       g.asked = new Map();
+      announce();
+    };
+
+    /** The banner's sound and the header's verb count, once per audience. */
+    const announce = () => {
+      if (g.announced === g.audience) return;
+      g.announced = g.audience;
+      feedback('wave');
       cb.current.onAudience(g.audience);
     };
 
@@ -220,17 +334,141 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
       redraw();
     };
 
+    /* ---------- drawing ---------- */
+
+    const width = () => field.clientWidth;
+    const wings = () => (motion.current ? 0 : g.clock);
+
+    /** The queen, at the left of her strip; she shakes once after a miss. */
+    const queenAt = () => {
+      const stripH = layout().stripH;
+      const since = g.clock - g.missedAt;
+      const shake = !motion.current && since < SHAKE_MS ? Math.sin((since / SHAKE_MS) * Math.PI * 4) * 4 * (1 - since / SHAKE_MS) : 0;
+      return { x: QUEEN_ROOM_PX / 2 + 2 + shake, y: Math.max(QUEEN_RADIUS * 1.6, stripH / 2 + QUEEN_RADIUS * 0.3) };
+    };
+
+    /** Where worker `k`'s bee sits: just above its button, in the middle of its lane. */
+    const workerBee = (k: number) => {
+      const box = workerBox(k, g.t);
+      return { x: (box.lane === 0 ? 0.25 : 0.75) * width(), y: box.top - BEE_RADIUS - 3 };
+    };
+
+    const burst = (x: number, y: number) => {
+      if (motion.current) return;
+      for (let i = 0; i < BURST.count; i++) {
+        const speed = BURST.speed * (0.4 + 0.6 * Math.random());
+        const angle = Math.random() * Math.PI * 2;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - BURST.speed * 0.3,
+          born: g.clock,
+          life: BURST.life * (0.7 + 0.3 * Math.random()),
+          r: BURST.r * (0.7 + 0.5 * Math.random()),
+        });
+      }
+      if (particles.length > MAX_PARTICLES) particles = particles.slice(-MAX_PARTICLES);
+    };
+
+    const drawComb = (w: number, h: number) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.clip();
+      ctx.fillStyle = colors.wall;
+      ctx.fillRect(0, 0, w, h);
+      const r = 11;
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 1;
+      for (let row = 0; row * r * 1.5 < h + r; row++) {
+        const y = row * r * 1.5 + r * 0.5;
+        const shift = row % 2 ? (r * Math.sqrt(3)) / 2 : 0;
+        for (let x = shift; x < w + r; x += r * Math.sqrt(3)) {
+          hexPath(ctx, x, y, r);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      ctx.fillStyle = colors.honey;
+      ctx.fillRect(0, h - 2, w, 2);
+    };
+
+    const drawWorkers = () => {
+      const order = g.order;
+      if (!order) return;
+      const answer = order.options.findIndex((w) => w.id === order.answer.id);
+      const since = g.phase === 'right' ? g.clock - g.deliveredAt : -1;
+      const queen = queenAt();
+      order.options.forEach((_, k) => {
+        const at = workerBee(k);
+        if (since < 0) {
+          // Walking up, nose towards the queen.
+          drawBee(ctx, at.x, at.y, BEE_RADIUS, -1, -0.35, wings() + k * 90, colors.muted);
+        } else if (k === answer) {
+          // The right worker flies up to the queen, and is gone once there.
+          if (since >= FLY_MS || motion.current) return;
+          const f = smooth(since / FLY_MS);
+          const x = at.x + (queen.x + QUEEN_RADIUS * 1.6 - at.x) * f;
+          const y = at.y + (queen.y - at.y) * f;
+          drawBee(ctx, x, y, BEE_RADIUS, -1, -0.5 * (1 - f), wings(), colors.muted);
+        } else {
+          // The others turn away and fly off sideways, out of their lane, fading. They keep to the
+          // gap above their own button, so they never pass behind a label.
+          const f = Math.min(1, since / DELIVER_MS);
+          const away = k % 2 === 0 ? -1 : 1;
+          const drift = motion.current ? 0 : f * 80;
+          ctx.globalAlpha = 1 - f;
+          drawBee(ctx, at.x + away * drift, at.y - drift * 0.1, BEE_RADIUS, away, -0.2, wings(), colors.muted);
+          ctx.globalAlpha = 1;
+        }
+      });
+    };
+
+    const draw = () => {
+      const w = width();
+      const stripH = layout().stripH;
+      ctx.clearRect(0, 0, w, field.clientHeight);
+      drawComb(w, stripH);
+      drawWorkers();
+      const q = queenAt();
+      drawBee(ctx, q.x, q.y, QUEEN_RADIUS, 1, 0.15, wings(), colors.muted);
+      drawCrown(ctx, q.x, q.y, QUEEN_RADIUS, 1, 0.15, colors);
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, 1 - (g.clock - p.born) / p.life);
+        ctx.fillStyle = colors.honey;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    };
+
     /* ---------- loop ---------- */
 
     let frame = 0;
     let last = 0;
+    let burstFor = -Infinity;
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
       // A hidden tab stops the clock; a slow frame moves it by one short step only.
       const dt = document.hidden || !last ? 0 : Math.min(now - last, MAX_STEP_MS);
       last = now;
       step(dt);
+      // The delivery bursts when the bee reaches the queen.
+      if (g.phase === 'right' && burstFor !== g.deliveredAt && g.clock - g.deliveredAt >= FLY_MS) {
+        burstFor = g.deliveredAt;
+        const q = queenAt();
+        burst(q.x + QUEEN_RADIUS, q.y);
+      }
+      particles = particles.filter((p) => g.clock - p.born < p.life);
+      for (const p of particles) {
+        p.vy += PARTICLE_GRAVITY * (dt / 1000);
+        p.x += p.vx * (dt / 1000);
+        p.y += p.vy * (dt / 1000);
+      }
       place();
+      draw();
     };
 
     const miss = (chosen: Word | null) => {
@@ -240,6 +478,8 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
       g.asked.set(order.answer.id, false);
       g.phase = 'reveal';
       g.until = g.clock + REVEAL_MS;
+      g.missedAt = g.clock;
+      feedback('wrong', BUZZ_MS);
       cb.current.onMiss(order.answer, chosen);
     };
 
@@ -251,6 +491,8 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
         g.asked.set(w.id, true);
         g.phase = 'right';
         g.until = g.clock + DELIVER_MS;
+        g.deliveredAt = g.clock;
+        feedback('right');
         cb.current.onRight();
       } else {
         miss(w);
@@ -269,6 +511,8 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
       redraw();
     };
 
+    // Effects run twice in development; the first banner sounds only once.
+    announce();
     redraw();
     frame = requestAnimationFrame(tick);
 
@@ -287,11 +531,17 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
             answer: g.order?.answer.id ?? null,
             options: g.order?.options.map((w) => w.id) ?? [],
             chosen: g.chosen,
+            particles: particles.length,
           };
         },
       };
     }
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      scheme.removeEventListener('change', onScheme);
+      motionQuery.removeEventListener('change', onMotion);
+    };
   }, [plan]);
 
   const pickRef = useRef<(w: Word) => void>(() => {});
@@ -311,6 +561,7 @@ function CourtField({ plan, show, sound, onRight, onMiss, onAudience, onOver }: 
 
   return (
     <div ref={fieldRef} className="court-field">
+      <canvas ref={canvasRef} aria-hidden="true" />
       <div ref={stripRef} className="court-strip">
         <p className="court-verb">
           {g.phase === 'reveal' && order ? (
