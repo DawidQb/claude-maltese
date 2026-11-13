@@ -31,7 +31,7 @@ import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face } from '../Cards';
-import { GameShell, Tally } from './GameShell';
+import { GameShell, MistakesList, Tally, type Mistake } from './GameShell';
 
 const REVEAL_MS = 1400;
 const MIN_POOL = 8;
@@ -322,9 +322,10 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
         cb.current.onCorrect();
         feedback('right');
         burst('right', b.x, b.y, now, back);
-        // The word just answered floats up, kept clear of the prompt strip.
+        // What was on the door floats up, kept clear of the prompt strip.
         const y = Math.max(b.y, headroom() + 70);
-        sparks.push({ text: `✓ ${q.answer.mt}`, x: b.x, y, born: now, life: FLOAT_MS, good: true, maltese: true });
+        const text = `✓ ${doorLabel(q.answer, dir, show)[0]}`;
+        sparks.push({ text, x: b.x, y, born: now, life: FLOAT_MS, good: true, maltese: dir === 'x2mt' });
         nextQuestion();
         goThrough(door!, now);
       } else if (missed) {
@@ -692,6 +693,7 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
       (window as unknown as Record<string, unknown>).__bee = {
         get state() {
           return {
+            dir,
             bee,
             arena,
             running,
@@ -801,10 +803,7 @@ function SpeakerIcon({ on }: { on: boolean }) {
  * hanging in the air on the way across is a bonus to pick up.
  */
 export function BusyBee({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
-  const [{ topic, show }] = useState(data.settings);
-  // Always from Polish / English to Maltese, whatever direction the Study tab uses:
-  // the doors carry the Maltese words, which is the harder way round.
-  const dir: Direction = 'x2mt';
+  const [{ topic, show, gameDirection: dir }] = useState(data.settings);
   const [pool] = useState(() => {
     const inTopic = beeWords(wordsInTopic(topic, data.settings), dir, show);
     // A topic can be left with too few short words; then play with the whole deck.
@@ -817,7 +816,7 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
   /** Grains of pollen picked up this round. Not saved; it counts for nothing else. */
   const [pollen, setPollen] = useState(0);
   /** Every mistake this round, in order: what was asked and which wrong answer was picked. */
-  const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word | null }[]>([]);
+  const [mistakes, setMistakes] = useState<Mistake[]>([]);
   /** Set after a bump: one more on the same question counts as a miss. */
   const [careful, setCareful] = useState(false);
   const sound = data.settings.sound;
@@ -826,8 +825,6 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
     if (!sound) wakeSound();
     update((d) => ({ ...d, settings: { ...d.settings, sound: !d.settings.sound } }));
   };
-  /** A word's translations, in the languages chosen in Settings. */
-  const translation = (w: Word) => doorLabel(w, 'mt2x', show).join(' · ');
 
   const playAgain = () => {
     setRound((n) => n + 1);
@@ -877,33 +874,7 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
             )}
           </ul>
 
-          {mistakes.length > 0 && (
-            <div className="bee-missed">
-              <h2 className="eyebrow">Your mistakes</h2>
-              <ul className="wordlist">
-                {mistakes.map(({ word, chosen }, i) => (
-                  <li key={i}>
-                    <div className="wordlist-text">
-                      <span className="mistake-asked">{translation(word)}</span>
-                      <span className="mistake mistake-right">
-                        <b>✓</b> <span lang="mt">{word.mt}</span>
-                      </span>
-                      <span className="mistake mistake-wrong">
-                        <b>✗</b>{' '}
-                        {chosen ? (
-                          <>
-                            you chose <span lang="mt">{chosen.mt}</span>
-                          </>
-                        ) : (
-                          'hit the wall twice'
-                        )}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <MistakesList mistakes={mistakes} dir={dir} show={show} missedText="hit the wall twice" />
 
           <div className="done-actions">
             <button className="btn btn-secondary btn-wide" onClick={playAgain}>

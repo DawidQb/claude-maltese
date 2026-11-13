@@ -1089,6 +1089,11 @@ select {
   font-weight: 700;
 }
 
+.mistake-asked [lang='mt'] {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+}
+
 .mistake {
   font-size: 0.9rem;
   overflow-wrap: anywhere;

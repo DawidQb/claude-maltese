@@ -18,7 +18,7 @@ export function Games({ data, update, onPlay }: Props) {
     {
       id: 'bee',
       name: 'Busy bee',
-      text: 'Tap to keep the bee flying and steer it through the door with the right Maltese word.',
+      text: 'Tap to keep the bee flying and steer it through the door with the right answer.',
     },
     {
       id: 'typing',
