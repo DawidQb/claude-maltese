@@ -29,7 +29,7 @@ export function InfiniteTyping({ data, onExit }: { data: AppData; onExit: () => 
 
   return (
     <GameShell title="Infinite typing" status={<Tally ok={correct} bad={wrong} />} onExit={onExit}>
-      <TileCard key={turn} word={word} show={show} autoCheck={autoCheck} onGrade={onGrade} />
+      <TileCard key={turn} word={word} show={show} autoCheck={autoCheck} onGrade={onGrade} tapToContinue />
     </GameShell>
   );
 }
