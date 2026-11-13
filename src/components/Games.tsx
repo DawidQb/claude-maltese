@@ -17,7 +17,7 @@ export function Games({ data, update, onPlay }: Props) {
   const games: { id: GameId; name: string; text: string; detail?: string }[] = [
     {
       id: 'bee',
-      name: 'Busy bee',
+      name: 'Bouncy bee',
       text: 'Tap to keep the bee flying and steer it through the door with the right answer.',
     },
     {

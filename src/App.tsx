@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { BeeSwarm } from './components/BeeSwarm';
 import { Games, type GameId } from './components/Games';
-import { BusyBee } from './components/games/BusyBee';
+import { BouncyBee } from './components/games/BouncyBee';
 import { HoneycombSpell } from './components/games/HoneycombSpell';
 import { InfiniteTyping } from './components/games/InfiniteTyping';
 import { MatchPairs } from './components/games/MatchPairs';
@@ -45,7 +45,7 @@ export function App() {
         {swarm}
         <div className="shell">
           {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
-          {activity === 'bee' && <BusyBee data={data} update={update} onExit={close} />}
+          {activity === 'bee' && <BouncyBee data={data} update={update} onExit={close} />}
           {activity === 'hive' && <ProtectHive data={data} update={update} onExit={close} />}
           {activity === 'queen' && <QueensOrders data={data} update={update} onExit={close} />}
           {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}

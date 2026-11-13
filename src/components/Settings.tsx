@@ -154,7 +154,7 @@ export function Settings({ data, update, account }: { data: AppData; update: Upd
           <label className="switch">
             <span>
               Sound in games
-              <small>Chimes, zaps, knocks and vibration in Busy bee and Protect the hive</small>
+              <small>Chimes, zaps, knocks and vibration in the games</small>
             </span>
             <input
               type="checkbox"

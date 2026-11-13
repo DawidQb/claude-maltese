@@ -711,7 +711,7 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
  * one leads on into the next room, a wrong one or the wall itself sends the bee back. Pollen
  * hanging in the air on the way across is a bonus to pick up.
  */
-export function BusyBee({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
+export function BouncyBee({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
   const [{ topic, show, gameDirection: dir }] = useState(data.settings);
   const [pool] = useState(() => {
     const inTopic = beeWords(wordsInTopic(topic, data.settings), dir, show);
@@ -747,7 +747,7 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
 
   return (
     <GameShell
-      title="Busy bee"
+      title="Bouncy bee"
       status={
         <span className="bee-status">
           <Tally ok={tally.ok} bad={tally.bad} />
