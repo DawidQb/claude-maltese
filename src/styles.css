@@ -1382,6 +1382,196 @@ select {
   }
 }
 
+/* ---------- Honeycomb look for the games ---------- */
+
+/*
+ * A comb cell: a hexagon stretched sideways so a word still fits. The button itself is clipped,
+ * so only the cell answers a tap; its edge and fill are two layers underneath the text, and the
+ * edge is thicker at the bottom, like the other tiles. States set the two colours.
+ */
+.cell {
+  --cell-edge: var(--line);
+  --cell-fill: var(--surface);
+  --cell-cut: 15px;
+  position: relative;
+  isolation: isolate;
+  padding: 8px calc(var(--cell-cut) - 3px);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  clip-path: polygon(var(--cell-cut) 0, calc(100% - var(--cell-cut)) 0, 100% 50%, calc(100% - var(--cell-cut)) 100%, var(--cell-cut) 100%, 0 50%);
+}
+
+.cell::before,
+.cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: inherit;
+  background: var(--cell-edge);
+}
+
+.cell::after {
+  inset: 2px 2px 4px;
+  clip-path: polygon(calc(var(--cell-cut) - 1px) 0, calc(100% - var(--cell-cut) + 1px) 0, 100% 50%, calc(100% - var(--cell-cut) + 1px) 100%, calc(var(--cell-cut) - 1px) 100%, 0 50%);
+  background: var(--cell-fill);
+  transition: background 0.12s ease;
+}
+
+.cell:focus-visible {
+  outline: none;
+  --cell-edge: var(--accent-text);
+}
+
+.cell:active {
+  --cell-fill: var(--surface-2);
+}
+
+.cell.is-picked {
+  --cell-edge: var(--accent-text);
+  --cell-fill: color-mix(in srgb, var(--accent) 28%, var(--surface));
+}
+
+/* A matched pair fills its cells with honey. */
+.cell.is-matched {
+  --cell-edge: var(--accent-text);
+  --cell-fill: var(--accent);
+  color: var(--accent-ink);
+  opacity: 0.8;
+}
+
+.cell.is-matched .tr-lines span + span {
+  color: inherit;
+}
+
+.cell.is-right {
+  --cell-edge: var(--known);
+  --cell-fill: color-mix(in srgb, var(--known) 18%, var(--surface));
+}
+
+.cell.is-wrong {
+  --cell-edge: var(--no);
+  --cell-fill: color-mix(in srgb, var(--no) 14%, var(--surface));
+}
+
+/* Match pairs: the right-hand column sits half a cell lower, so the two interlock like comb. */
+.pairs-comb {
+  align-items: start;
+  column-gap: 6px;
+}
+
+.pairs-comb .pairs-col {
+  gap: 6px;
+}
+
+.pairs-comb .tile-btn {
+  min-height: 56px;
+}
+
+/* On a short screen there is no room for the half-cell step: the cells stay side by side. */
+@media (min-height: 760px) {
+  .pairs-comb .pairs-col + .pairs-col {
+    margin-top: 31px;
+  }
+}
+
+/* Speed round: the timer is a row of honey cells, draining from the right. */
+.honey-timer {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+}
+
+.honey-timer i {
+  aspect-ratio: 0.866;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: linear-gradient(to top, var(--accent) calc(var(--fill) * 100%), var(--surface-2) 0);
+}
+
+/* Infinite typing: hexagonal keys, every other row set half a key in, the rows nesting together. */
+.keys-comb {
+  grid-template-columns: repeat(11, 1fr);
+  column-gap: 4px;
+  row-gap: 0;
+  margin-bottom: 12px;
+}
+
+.keys-comb .key {
+  --key-edge: var(--line);
+  --key-fill: var(--surface);
+  grid-column: span 2;
+  position: relative;
+  isolation: isolate;
+  min-height: 0;
+  height: 62px;
+  margin-bottom: -12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.keys-comb .key:nth-child(10n + 1) {
+  grid-column: 1 / span 2;
+}
+
+.keys-comb .key:nth-child(10n + 6) {
+  grid-column: 2 / span 2;
+}
+
+.keys-comb .key::before,
+.keys-comb .key::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: inherit;
+  background: var(--key-edge);
+}
+
+.keys-comb .key::after {
+  inset: 2px 2px 3px;
+  background: var(--key-fill);
+}
+
+.keys-comb .key:active {
+  --key-fill: color-mix(in srgb, var(--accent) 35%, var(--surface));
+  background: none;
+}
+
+.keys-comb .key:focus-visible {
+  outline: none;
+  --key-edge: var(--accent-text);
+}
+
+/* A faint comb fading down from the top of a game's card. */
+.comb-bg {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.comb-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--line) 60%, transparent);
+  pointer-events: none;
+  --comb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100' fill='none' stroke='black' stroke-width='2.5'/%3E%3C/svg%3E");
+  -webkit-mask: var(--comb) top center / 28px 50px repeat, linear-gradient(to bottom, #000, transparent 45%);
+  -webkit-mask-composite: source-in;
+  mask: var(--comb) top center / 28px 50px repeat, linear-gradient(to bottom, #000, transparent 45%);
+  mask-composite: intersect;
+}
+
+@media (prefers-color-scheme: dark) {
+  .comb-bg::before {
+    background: var(--line);
+  }
+}
+
 /* ---------- Word list ---------- */
 
 .filters {
