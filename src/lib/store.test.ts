@@ -52,12 +52,12 @@ describe('sanitize', () => {
       settings: { newPerDay: -4, show: 'de', direction: 'x2mt', topic: 'Dinosaurs', typing: 'yes' },
     });
     expect(out?.cards).toEqual({ 'mt2x:ilma': { box: 5, due: '2026-03-11' } });
-    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', topic: 'all', typing: false, plurals: true, verbForms: true });
+    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true });
   });
 
   it('fills in settings added after a progress file was saved', () => {
     const out = sanitize({ version: 1, cards: {}, settings: { newPerDay: 5, show: 'pl', direction: 'mt2x' } });
-    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', topic: 'all', typing: false, plurals: true, verbForms: true });
+    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true });
   });
 
   it('keeps the speed-round record and ignores a broken one', () => {
@@ -75,6 +75,11 @@ describe('sanitize', () => {
   it('keeps plural forms switched off when saved that way', () => {
     expect(sanitize({ version: 1, cards: {}, settings: { plurals: false } })?.settings.plurals).toBe(false);
     expect(sanitize({ version: 1, cards: {}, settings: { plurals: 'no' } })?.settings.plurals).toBe(true);
+  });
+
+  it('keeps automatic checking switched off when saved that way, and on by default', () => {
+    expect(sanitize({ version: 1, cards: {}, settings: { autoCheck: false } })?.settings.autoCheck).toBe(false);
+    expect(sanitize({ version: 1, cards: {}, settings: {} })?.settings.autoCheck).toBe(true);
   });
 
   it('keeps verb forms switched off when saved that way', () => {

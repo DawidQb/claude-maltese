@@ -39,12 +39,27 @@ export function toKeys(word: string): string[] {
   return keys;
 }
 
+const ROW = 5;
+const MIN_KEYS = 10;
+const MIN_DECOYS = 2;
+
+/**
+ * How many keys the pad has for a word: ten, or more for a long word.
+ * The pad is at least as big as the word is long, always leaves room for a
+ * couple of decoys, and fills whole rows.
+ */
+export function padSize(word: string): number {
+  const needed = toKeys(word);
+  const wanted = Math.max(MIN_KEYS, needed.length, new Set(needed).size + MIN_DECOYS);
+  return Math.ceil(wanted / ROW) * ROW;
+}
+
 /**
  * The keys to show for a word: every letter it needs, then look-alike decoys,
- * then random letters, up to `count` keys. A word with more than `count`
- * different letters gets as many keys as it needs.
+ * then random letters, up to the pad size for that word.
  */
-export function letterKeys(word: string, rng: Rng = Math.random, count = 10): string[] {
+export function letterKeys(word: string, rng: Rng = Math.random): string[] {
+  const count = padSize(word);
   const keys = new Set(toKeys(word));
   const add = (candidates: string[]) => {
     for (const k of candidates) {

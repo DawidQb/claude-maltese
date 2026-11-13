@@ -124,6 +124,18 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
               onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, typing: e.target.checked } }))}
             />
           </label>
+          <label className="switch">
+            <span>
+              Check automatically
+              <small>On the letter pad, accept a correctly spelled word at once, without a tap on Check</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.autoCheck}
+              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, autoCheck: e.target.checked } }))}
+            />
+          </label>
         </div>
       </section>
 

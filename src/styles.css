@@ -754,6 +754,11 @@ select {
   font-size: 1.35rem;
 }
 
+/* Four rows for the longest phrases: slightly shorter keys keep the pad on one screen. */
+.keys-pad.is-big .key {
+  min-height: 42px;
+}
+
 .tile-entry {
   display: grid;
   grid-template-columns: 1fr 56px;

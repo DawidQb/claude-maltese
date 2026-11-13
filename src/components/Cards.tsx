@@ -16,6 +16,8 @@ const VERDICT: Record<Verdict, { title: string; grade: Grade }> = {
 interface TypeProps {
   word: Word;
   show: ShowLang;
+  /** Accept a correctly spelled word as soon as it is complete, without a tap on Check. */
+  autoCheck: boolean;
   /** Called when the learner moves on: 'knew', 'almost' or 'no'. */
   onGrade: (grade: Grade) => void;
 }
@@ -63,12 +65,17 @@ function ResultButtons({ verdict, onGrade }: { verdict: Verdict; onGrade: (grade
  * the word's own letters and some decoys. A hardware keyboard still works.
  * Used by typing mode on the Study tab and by the infinite typing game.
  */
-export function TileCard({ word, show, onGrade }: TypeProps) {
+export function TileCard({ word, show, autoCheck, onGrade }: TypeProps) {
   const [keys] = useState(() => letterKeys(word.mt));
   // The answer so far, one entry per key press, so that backspace removes "għ" in one go.
   const [typedKeys, setTypedKeys] = useState<string[]>([]);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const typed = typedKeys.join('');
+
+  // Only a fully correct spelling is accepted on its own; anything else waits for Check.
+  useEffect(() => {
+    if (autoCheck && !verdict && checkAnswer(typed, word.mt) === 'correct') setVerdict('correct');
+  }, [autoCheck, verdict, typed, word.mt]);
 
   useEffect(() => {
     if (verdict) return;
@@ -112,7 +119,7 @@ export function TileCard({ word, show, onGrade }: TypeProps) {
                 ⌫
               </button>
             </div>
-            <div className="keys keys-pad" role="group" aria-label="Letters">
+            <div className={`keys keys-pad${keys.length > 15 ? ' is-big' : ''}`} role="group" aria-label="Letters">
               {keys.map((k) => (
                 <button
                   key={k}

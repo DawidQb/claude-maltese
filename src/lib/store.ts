@@ -13,6 +13,8 @@ export interface Settings {
   topic: string;
   /** Spell the Maltese word on the letter pad instead of flipping the card (Polish/English → Maltese only). */
   typing: boolean;
+  /** On the letter pad, accept a correctly spelled word at once, without a tap on Check. */
+  autoCheck: boolean;
   /** Include plural forms of nouns as cards of their own. */
   plurals: boolean;
   /** Include conjugated verb forms ("he eats", "we danced") as cards of their own. */
@@ -38,7 +40,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false, plurals: true, verbForms: true },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0 },
@@ -69,6 +71,7 @@ export function sanitize(input: unknown): AppData | null {
     direction: s.direction === 'x2mt' ? 'x2mt' : 'mt2x',
     topic: typeof s.topic === 'string' && TOPICS.includes(s.topic) ? s.topic : ALL_TOPICS,
     typing: s.typing === true,
+    autoCheck: s.autoCheck !== false,
     plurals: s.plurals !== false,
     verbForms: s.verbForms !== false,
   };

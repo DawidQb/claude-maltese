@@ -96,7 +96,7 @@ export function Study({ data, update, today, onExit }: Props) {
 
       {current ? (
         typing ? (
-          <TileCard key={cardId} word={current} show={show} onGrade={answer} />
+          <TileCard key={cardId} word={current} show={show} autoCheck={settings.autoCheck} onGrade={answer} />
         ) : (
           <FlipCard key={cardId} word={current} dir={dir} show={show} onGrade={answer} />
         )

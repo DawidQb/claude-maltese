@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkAnswer } from './answer';
-import { keyLabel, letterKeys, toKeys } from './letters';
+import { keyLabel, letterKeys, padSize, toKeys } from './letters';
 import { WORDS } from './words';
 
 function seeded(seed: number) {
@@ -53,10 +53,31 @@ describe('letterKeys', () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it('shows more than ten keys only when the word needs them', () => {
-    const long = letterKeys('titkellem bl-Ingliż?', seeded(1));
-    expect(new Set(toKeys('titkellem bl-Ingliż?')).size).toBeGreaterThan(10);
-    expect(long).toHaveLength(new Set(toKeys('titkellem bl-Ingliż?')).size);
+  it('keeps ten keys for words of up to ten letters', () => {
+    expect(padSize('id')).toBe(10);
+    expect(padSize('ħobż')).toBe(10);
+    expect(padSize('tkellimtu')).toBe(10);
+    expect(padSize('interessanti'.slice(0, 10))).toBe(10);
+  });
+
+  it('grows the pad, a whole row at a time, for words longer than ten letters', () => {
+    expect(toKeys('interessanti')).toHaveLength(12);
+    expect(padSize('interessanti')).toBe(15);
+    expect(letterKeys('interessanti', seeded(1))).toHaveLength(15);
+    expect(toKeys('titkellem bl-Ingliż?')).toHaveLength(19);
+    expect(padSize('titkellem bl-Ingliż?')).toBe(20);
+    expect(letterKeys('titkellem bl-Ingliż?', seeded(1))).toHaveLength(20);
+  });
+
+  it('always leaves at least two decoys, even when the word uses many different letters', () => {
+    const rng = seeded(11);
+    for (const w of WORDS) {
+      const keys = letterKeys(w.mt, rng);
+      const needed = new Set(toKeys(w.mt));
+      expect(keys.length % 5, w.mt).toBe(0);
+      expect(keys.length, w.mt).toBeGreaterThanOrEqual(toKeys(w.mt).length);
+      expect(keys.filter((k) => !needed.has(k)).length, w.mt).toBeGreaterThanOrEqual(2);
+    }
   });
 
   it('lets every word in the deck be typed correctly with its own keys', () => {

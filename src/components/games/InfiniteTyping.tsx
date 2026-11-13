@@ -8,7 +8,7 @@ import { GameShell, Tally } from './GameShell';
 
 /** An endless, random stream of words to type in Maltese. Practice only: nothing is scheduled. */
 export function InfiniteTyping({ data, onExit }: { data: AppData; onExit: () => void }) {
-  const [{ topic, show }] = useState(data.settings);
+  const [{ topic, show, autoCheck }] = useState(data.settings);
   const [stream] = useState(() => new WordStream(wordsInTopic(topic, data.settings)));
   const [word, setWord] = useState(() => stream.next());
   const [turn, setTurn] = useState(0);
@@ -29,7 +29,7 @@ export function InfiniteTyping({ data, onExit }: { data: AppData; onExit: () => 
 
   return (
     <GameShell title="Infinite typing" status={<Tally ok={correct} bad={wrong} />} onExit={onExit}>
-      <TileCard key={turn} word={word} show={show} onGrade={onGrade} />
+      <TileCard key={turn} word={word} show={show} autoCheck={autoCheck} onGrade={onGrade} />
     </GameShell>
   );
 }
