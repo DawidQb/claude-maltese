@@ -721,20 +721,6 @@ select {
   gap: 8px;
 }
 
-.type-input {
-  min-height: 52px;
-  font-family: var(--serif);
-  font-size: 1.35rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-.type-input::placeholder {
-  font-family: var(--sans);
-  font-size: 1rem;
-  font-weight: 400;
-}
-
 .keys {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

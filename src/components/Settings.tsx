@@ -115,7 +115,7 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
           <label className="switch">
             <span>
               Type the answer
-              <small>In Polish / English → Maltese, write the word instead of flipping the card</small>
+              <small>In Polish / English → Maltese, spell the word on a letter pad instead of flipping the card</small>
             </span>
             <input
               type="checkbox"

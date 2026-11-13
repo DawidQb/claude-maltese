@@ -3,7 +3,7 @@ import { requestPersistentStorage } from '../lib/install';
 import { buildSession, cardKey, type Direction, type Grade } from '../lib/srs';
 import { newLeft, recordAnswer, type AppData, type ShowLang, type Update } from '../lib/store';
 import { ALL_TOPICS, WORDS, wordsInTopic, type Word } from '../lib/words';
-import { Face, Forms, TypeCard } from './Cards';
+import { Face, Forms, TileCard } from './Cards';
 import { DIRECTION_LABEL } from './Home';
 
 interface Props {
@@ -96,7 +96,7 @@ export function Study({ data, update, today, onExit }: Props) {
 
       {current ? (
         typing ? (
-          <TypeCard key={cardId} word={current} show={show} onGrade={answer} />
+          <TileCard key={cardId} word={current} show={show} onGrade={answer} />
         ) : (
           <FlipCard key={cardId} word={current} dir={dir} show={show} onGrade={answer} />
         )

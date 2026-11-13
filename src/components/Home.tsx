@@ -64,7 +64,7 @@ export function Home({ data, update, today, onStudy }: Props) {
           <label className="switch">
             <span>
               Type the answer
-              <small>Write the Maltese word instead of flipping the card</small>
+              <small>Spell the Maltese word on a letter pad instead of flipping the card</small>
             </span>
             <input type="checkbox" role="switch" checked={typing} onChange={(e) => set({ typing: e.target.checked })} />
           </label>

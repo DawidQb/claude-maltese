@@ -11,7 +11,7 @@ export interface Settings {
   direction: Direction;
   /** A topic name, or ALL_TOPICS. */
   topic: string;
-  /** Type the Maltese word instead of flipping the card (Polish/English → Maltese only). */
+  /** Spell the Maltese word on the letter pad instead of flipping the card (Polish/English → Maltese only). */
   typing: boolean;
   /** Include plural forms of nouns as cards of their own. */
   plurals: boolean;

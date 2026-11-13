@@ -7,7 +7,7 @@ Flashcards for memorising Maltese words through their Polish and English transla
 - Spaced repetition: words you know come back after 1, 3, 7, 14 and then 30 days; words you miss come back the same session.
 - 713 words in 16 topics. Study everything or one topic at a time.
 - 189 plural forms of nouns and 327 conjugated verb forms ("he eats", "we danced") as cards of their own; each kind can be switched off in Settings.
-- Typing mode (Polish/English → Maltese): write the Maltese word, with keys for ċ ġ għ ħ ż. Missing special letters or a single typo count as "almost".
+- Typing mode (Polish/English → Maltese): spell the Maltese word on a ten-letter pad, so the phone keyboard is not needed. The pad holds the word's letters plus look-alike decoys such as h for ħ. Wrong special letters or a single typo count as "almost".
 - Four practice games that never change the review schedule and show only a count of right and wrong answers: Busy bee (tap to keep a bee flying between two walls and steer it through the door with the right answer), infinite typing (an endless random stream of the whole deck, spelled on a ten-letter pad so the phone keyboard is not needed; missed words return later, at most one turn in four), match pairs (untimed) and a 60-second speed round with four answer choices.
 - Installable and usable offline: add it to your home screen from the browser.
 - Progress lives in the browser's local storage. Use Settings → Export / Import to move it between devices.

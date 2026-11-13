@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { checkAnswer, type Verdict } from '../lib/answer';
 import { keyLabel, letterKeys } from '../lib/letters';
 import type { Grade } from '../lib/srs';
 import type { ShowLang } from '../lib/store';
 import type { Word } from '../lib/words';
 
-/* ---------- Typing mode: write the Maltese word, the app checks it ---------- */
-
-const SPECIAL_KEYS = ['ċ', 'ġ', 'għ', 'ħ', 'ż'];
+/* ---------- Typing mode: spell the Maltese word on a letter pad, the app checks it ---------- */
 
 const VERDICT: Record<Verdict, { title: string; grade: Grade }> = {
   correct: { title: 'Correct', grade: 'knew' },
@@ -60,97 +58,10 @@ function ResultButtons({ verdict, onGrade }: { verdict: Verdict; onGrade: (grade
   );
 }
 
-/** Typing with the device keyboard, plus a row of keys for the special Maltese letters. */
-export function TypeCard({ word, show, onGrade }: TypeProps) {
-  const [value, setValue] = useState('');
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const caret = useRef<number | null>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  // Put the cursor back after a special-letter key rewrites the field.
-  useEffect(() => {
-    if (caret.current !== null && inputRef.current) {
-      inputRef.current.setSelectionRange(caret.current, caret.current);
-      caret.current = null;
-    }
-  }, [value]);
-
-  const insert = (text: string) => {
-    const el = inputRef.current;
-    const start = el?.selectionStart ?? value.length;
-    const end = el?.selectionEnd ?? value.length;
-    caret.current = start + text.length;
-    setValue(value.slice(0, start) + text + value.slice(end));
-    el?.focus();
-  };
-
-  const check = (e: FormEvent) => {
-    e.preventDefault();
-    setVerdict(checkAnswer(value, word.mt));
-  };
-
-  const typed = value.trim();
-
-  return (
-    <>
-      <QuestionCard word={word} show={show} verdict={verdict} typed={typed} />
-
-      <div className="actions">
-        {verdict ? (
-          <ResultButtons verdict={verdict} onGrade={onGrade} />
-        ) : (
-          <form className="type-form" onSubmit={check}>
-            <input
-              ref={inputRef}
-              className="input type-input"
-              lang="mt"
-              aria-label="Your answer in Maltese"
-              placeholder="Type the Maltese word"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              autoCapitalize="none"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              enterKeyHint="done"
-            />
-            <div className="keys" role="group" aria-label="Maltese letters">
-              {SPECIAL_KEYS.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className="key"
-                  lang="mt"
-                  // Keep focus (and the phone keyboard) on the text field.
-                  onPointerDown={(e) => e.preventDefault()}
-                  onClick={() => insert(k)}
-                >
-                  {k}
-                </button>
-              ))}
-            </div>
-            <div className="result-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setVerdict('wrong')}>
-                Don’t know
-              </button>
-              <button type="submit" className="btn btn-primary">
-                Check
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </>
-  );
-}
-
 /**
- * Typing on a letter pad instead of the device keyboard: ten keys holding the
- * word's own letters and some decoys. A hardware keyboard still works.
+ * Spelling on a letter pad, so the device keyboard never opens: ten keys holding
+ * the word's own letters and some decoys. A hardware keyboard still works.
+ * Used by typing mode on the Study tab and by the infinite typing game.
  */
 export function TileCard({ word, show, onGrade }: TypeProps) {
   const [keys] = useState(() => letterKeys(word.mt));
