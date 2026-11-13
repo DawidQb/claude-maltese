@@ -154,7 +154,7 @@ export function Settings({ data, update, account }: { data: AppData; update: Upd
           <label className="switch">
             <span>
               Sound in games
-              <small>Chimes, knocks and vibration in Busy bee</small>
+              <small>Chimes, zaps, knocks and vibration in Busy bee and Protect the hive</small>
             </span>
             <input
               type="checkbox"
@@ -169,6 +169,18 @@ export function Settings({ data, update, account }: { data: AppData; update: Upd
       <section>
         <h2 className="eyebrow">App</h2>
         <div className="panel">
+          <label className="switch">
+            <span>
+              Beeeeeeeeeeeees!
+              <small>Lots of bees flying about in the background. They keep still if your device asks for less motion.</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.bees}
+              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, bees: e.target.checked } }))}
+            />
+          </label>
           {installed ? (
             <p className="muted">Naħla is installed on this device and works without a connection.</p>
           ) : (
