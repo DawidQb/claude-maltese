@@ -23,8 +23,8 @@ const DT = 1 / 60;
 function flyTo(bee: Bee, targetY: number, maxSeconds = 10) {
   for (let i = 0; i < maxSeconds * 60; i++) {
     if (bee.y > targetY && bee.vy > -100) flap(bee);
-    const event = step(bee, DT, arena);
-    if (event) return event;
+    const hit = step(bee, DT, arena);
+    if (hit) return hit.event;
   }
   throw new Error('the bee never reached a wall');
 }
@@ -62,6 +62,44 @@ describe('placeDoors', () => {
         expect(upper.bottom - upper.top).toBeGreaterThan(BEE_RADIUS * 4);
       }
     }
+  });
+
+  it('places two full-size doors exactly as before door counts and sizes could change', () => {
+    // The original rule, kept here as the reference.
+    const before = (a: Arena, correct: number, rng: () => number, headroom: number) => {
+      const half = (a.height - headroom) / 2;
+      const room = half - 14 - 28 / 2;
+      const size = Math.min(room, Math.max(96, Math.min(150, a.height * 0.26)));
+      const upperTop = headroom + 14 + rng() * (room - size);
+      const lowerTop = headroom + half + 28 / 2 + rng() * (room - size);
+      return [
+        { top: upperTop, bottom: upperTop + size, option: 0, correct: correct === 0 },
+        { top: lowerTop, bottom: lowerTop + size, option: 1, correct: correct === 1 },
+      ];
+    };
+    for (const height of [360, 560, 900]) {
+      for (const headroom of [0, 70]) {
+        const a = { width: 360, height };
+        const draws = [0.1, 0.8];
+        const rng = () => draws.shift() ?? 0.5;
+        const again = [0.1, 0.8];
+        expect(placeDoors(a, 1, rng, headroom)).toEqual(before(a, 1, () => again.shift() ?? 0.5, headroom));
+      }
+    }
+  });
+
+  it('reports the door the bee flew through', () => {
+    const bee = launched(1);
+    const target = bee.doors[1];
+    for (let i = 0; i < 600; i++) {
+      if (bee.y > (target.top + target.bottom) / 2 && bee.vy > -100) flap(bee);
+      const hit = step(bee, DT, arena);
+      if (hit) {
+        expect(hit).toEqual({ event: 'correct', door: target });
+        return;
+      }
+    }
+    throw new Error('no wall reached');
   });
 
   it('marks exactly the door of the right answer', () => {
@@ -156,9 +194,9 @@ describe('reaching the wall', () => {
     for (let i = 0; i < 600; i++) {
       bee.y = between;
       bee.vy = 0;
-      const event = step(bee, DT, arena);
-      if (event) {
-        expect(event).toBe('bump');
+      const hit = step(bee, DT, arena);
+      if (hit) {
+        expect(hit).toEqual({ event: 'bump' });
         return;
       }
     }

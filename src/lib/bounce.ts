@@ -36,6 +36,12 @@ export interface Bee {
 /** What happened when the bee reached a wall. */
 export type WallEvent = 'correct' | 'wrong' | 'bump';
 
+/** A wall reached: what happened, and the door flown through (none for a bump). */
+export interface WallHit {
+  event: WallEvent;
+  door?: Door;
+}
+
 export const BEE_RADIUS = 15;
 export const WALL = 12;
 const GRAVITY = 1500;
@@ -63,20 +69,29 @@ export function nextSpeed(speed: number, event: WallEvent): number {
 }
 
 /**
- * One door in the upper half and one in the lower half, at random heights.
- * `headroom` keeps a strip at the top free of doors, for the word being asked.
+ * The space below `headroom` is split into `count` equal bands, with one door at a random height
+ * in each; with two doors, one in the upper half and one in the lower half. `headroom` keeps a
+ * strip at the top free of doors, for the word being asked. `scale` shrinks the doors.
  */
-export function placeDoors(arena: Arena, correctOption: number, rng: Rng = Math.random, headroom = 0): Door[] {
-  const half = (arena.height - headroom) / 2;
-  const room = half - DOOR_PAD - DOOR_GAP / 2;
-  const size = Math.min(room, Math.max(96, Math.min(150, arena.height * 0.26)));
+export function placeDoors(
+  arena: Arena,
+  correctOption: number,
+  rng: Rng = Math.random,
+  headroom = 0,
+  count = 2,
+  scale = 1,
+): Door[] {
+  const band = (arena.height - headroom) / count;
+  // The top and bottom doors keep clear of the ceiling and floor, the others of each other.
+  const above = (i: number) => (i === 0 ? DOOR_PAD : DOOR_GAP / 2);
+  const below = (i: number) => (i === count - 1 ? DOOR_PAD : DOOR_GAP / 2);
+  const room = Math.min(...Array.from({ length: count }, (_, i) => band - above(i) - below(i)));
+  const size = Math.min(room, Math.max(96, Math.min(150, arena.height * 0.26)) * scale);
   const slack = room - size;
-  const upperTop = headroom + DOOR_PAD + rng() * slack;
-  const lowerTop = headroom + half + DOOR_GAP / 2 + rng() * slack;
-  return [
-    { top: upperTop, bottom: upperTop + size, option: 0, correct: correctOption === 0 },
-    { top: lowerTop, bottom: lowerTop + size, option: 1, correct: correctOption === 1 },
-  ];
+  return Array.from({ length: count }, (_, option) => {
+    const top = headroom + option * band + above(option) + rng() * slack;
+    return { top, bottom: top + size, option, correct: correctOption === option };
+  });
 }
 
 export function newBee(arena: Arena, doors: Door[]): Bee {
@@ -95,10 +110,10 @@ export function turn(bee: Bee, arena: Arena, speed: number, doors: Door[]): void
 }
 
 /**
- * Advances the bee by `dt` seconds; `lifting` while the player holds on. Returns an event
- * when the bee reaches the wall it was heading for.
+ * Advances the bee by `dt` seconds; `lifting` while the player holds on. Returns what happened,
+ * and through which door, when the bee reaches the wall it was heading for.
  */
-export function step(bee: Bee, dt: number, arena: Arena, lifting = false): WallEvent | null {
+export function step(bee: Bee, dt: number, arena: Arena, lifting = false): WallHit | null {
   if (lifting) bee.vy = Math.max(-HOLD_RISE, bee.vy - HOLD_LIFT * dt);
   else bee.vy += GRAVITY * dt;
   bee.y += bee.vy * dt;
@@ -119,8 +134,8 @@ export function step(bee: Bee, dt: number, arena: Arena, lifting = false): WallE
 
   bee.x = limit;
   const door = bee.doors.find((d) => bee.y >= d.top && bee.y <= d.bottom);
-  if (!door) return 'bump';
-  return door.correct ? 'correct' : 'wrong';
+  if (!door) return { event: 'bump' };
+  return { event: door.correct ? 'correct' : 'wrong', door };
 }
 
 /* ---------- Which words fit on a door ---------- */

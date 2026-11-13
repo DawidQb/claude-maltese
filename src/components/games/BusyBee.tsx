@@ -14,6 +14,7 @@ import {
   WALL,
   type Arena,
   type Bee,
+  type WallHit,
 } from '../../lib/bounce';
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
 import type { Direction } from '../../lib/srs';
@@ -100,6 +101,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     let q = firstQuestion.current;
     let bee: Bee | null = null;
     let speed = SPEED.start;
+    /** Right answers in a row. Never shown; it drives difficulty and effects. */
+    let run = 0;
     let running = false;
     /** While set, the game is paused to show the right answer; then the next question starts. */
     let pausedUntil = 0;
@@ -139,17 +142,18 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
 
     const turnAround = () => turn(bee!, arena, speed, doors());
 
-    const onWall = (event: 'correct' | 'wrong' | 'bump', now: number) => {
+    const onWall = ({ event, door }: WallHit, now: number) => {
       const b = bee!;
       speed = nextSpeed(speed, event);
       if (event === 'correct') {
+        run += 1;
         cb.current.onCorrect();
         sparks.push({ text: '✓', x: b.x, y: b.y, born: now, good: true });
         nextQuestion();
         turnAround();
       } else if (event === 'wrong') {
-        // With two doors, the one flown through is the option that is not the answer.
-        cb.current.onWrong(q.answer, q.options.find((w) => w.id !== q.answer.id)!);
+        run = 0;
+        cb.current.onWrong(q.answer, q.options[door!.option]);
         sparks.push({ text: '✗', x: b.x, y: b.y, born: now, good: false });
         stream.repeatLater(q.answer);
         setReveal(q.answer);
@@ -343,8 +347,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       } else if (running) {
         // A quick tap is one flap; holding on keeps the bee climbing.
         const lifting = heldSince > 0 && now - heldSince >= HOLD_DELAY_MS;
-        const event = step(bee, dt, arena, lifting);
-        if (event) onWall(event, now);
+        const hit = step(bee, dt, arena, lifting);
+        if (hit) onWall(hit, now);
       } else {
         // Hovering before the first tap.
         bee.y = arena.height * 0.45 + Math.sin(now / 300) * 8;
@@ -364,7 +368,16 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       // Lets the automated check fly the bee; stripped from the production build.
       (window as unknown as Record<string, unknown>).__bee = {
         get state() {
-          return { bee, arena, running, paused: pausedUntil > 0, speed, answer: q.answer.id, options: q.options.map((w) => w.id) };
+          return {
+            bee,
+            arena,
+            running,
+            paused: pausedUntil > 0,
+            speed,
+            run,
+            answer: q.answer.id,
+            options: q.options.map((w) => w.id),
+          };
         },
       };
     }
