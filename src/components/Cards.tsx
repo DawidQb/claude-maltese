@@ -119,7 +119,7 @@ export function TileCard({ word, show, autoCheck, onGrade }: TypeProps) {
                 ⌫
               </button>
             </div>
-            <div className={`keys keys-pad${keys.length > 15 ? ' is-big' : ''}`} role="group" aria-label="Letters">
+            <div className="keys keys-pad" role="group" aria-label="Letters">
               {keys.map((k) => (
                 <button
                   key={k}

@@ -41,17 +41,16 @@ export function toKeys(word: string): string[] {
 
 const ROW = 5;
 const MIN_KEYS = 10;
-const MIN_DECOYS = 2;
 
 /**
- * How many keys the pad has for a word: ten, or more for a long word.
- * The pad is at least as big as the word is long, always leaves room for a
- * couple of decoys, and fills whole rows.
+ * How many keys the pad has for a word: ten, unless the word uses more than
+ * ten different letters. Then the pad grows a whole row at a time until they
+ * all fit. How long the word is does not matter, only how many different
+ * letters it has.
  */
 export function padSize(word: string): number {
-  const needed = toKeys(word);
-  const wanted = Math.max(MIN_KEYS, needed.length, new Set(needed).size + MIN_DECOYS);
-  return Math.ceil(wanted / ROW) * ROW;
+  const different = new Set(toKeys(word)).size;
+  return Math.max(MIN_KEYS, Math.ceil(different / ROW) * ROW);
 }
 
 /**
