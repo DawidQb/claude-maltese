@@ -37,7 +37,7 @@ export function App() {
     return (
       <div className="shell">
         {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
-        {activity === 'bee' && <BusyBee data={data} onExit={close} />}
+        {activity === 'bee' && <BusyBee data={data} update={update} onExit={close} />}
         {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
         {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
         {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}

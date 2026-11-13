@@ -23,7 +23,8 @@ import {
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
 import { similarity } from '../../lib/letters';
 import type { Direction } from '../../lib/srs';
-import type { AppData, ShowLang } from '../../lib/store';
+import { playSound, wakeSound, type Sound } from '../../lib/sound';
+import type { AppData, ShowLang, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face } from '../Cards';
 import { GameShell, Tally } from './GameShell';
@@ -32,6 +33,23 @@ const REVEAL_MS = 1400;
 const MIN_POOL = 8;
 /** How long the view takes to slide after the bee into the next room. */
 const ROOM_SLIDE_MS = 320;
+/** The right answer floats up from the door for this long. */
+const FLOAT_MS = 900;
+/** The frame of the door flown through lights up green or red for this long. */
+const FLASH_MS = 250;
+/** Particles at once, at most; the oldest go first. */
+const MAX_PARTICLES = 80;
+const PARTICLE_GRAVITY = 900;
+/** Dots thrown from the door: pollen on a right answer, a puff on a wrong one, specks on a bump. */
+const BURSTS = {
+  right: { count: 8, extra: 4, speed: 240, life: 500, r: 3 },
+  wrong: { count: 6, extra: 0, speed: 90, life: 350, r: 4 },
+  bump: { count: 4, extra: 0, speed: 120, life: 300, r: 2 },
+};
+/** A trail of fading dots behind the bee from a run of 3 right answers, longer and brighter from 6. */
+const TRAIL = { from: 3, long: 6, dots: 12, longDots: 18, everyMs: 30 };
+/** Vibration on a bump and on a miss, in ms. */
+const BUZZ = { bump: 30, wrong: 120 };
 
 /** Repeatable random numbers, so a room looks the same each time the bee passes through it. */
 function seeded(seed: number): () => number {
@@ -47,12 +65,27 @@ function seeded(seed: number): () => number {
 /** Eases from 0 to 1 and starts and stops gently, so the bee's motion has no jolt at either end. */
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
+/** Text that floats up and fades: the right answer, or a cross. */
 interface Spark {
   text: string;
   x: number;
   y: number;
   born: number;
+  life: number;
   good: boolean;
+  /** Set for a Maltese word, which is written in the serif face. */
+  maltese?: boolean;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  born: number;
+  life: number;
+  color: string;
+  r: number;
 }
 
 interface Colors {
@@ -87,6 +120,8 @@ interface FieldProps {
   pool: Word[];
   dir: Direction;
   show: ShowLang;
+  /** Sound and vibration on. */
+  sound: boolean;
   onStart: () => void;
   onCorrect: () => void;
   /** The word that was asked, and the wrong answer whose door the bee flew through (null: the wall, once too often). */
@@ -96,7 +131,7 @@ interface FieldProps {
 }
 
 /** The play area: the word at the top, the bee, the walls and their doors. One round per mount. */
-function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: FieldProps) {
+function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps }: FieldProps) {
   const [stream] = useState(() => new WordStream(pool));
   const [question, setQuestion] = useState<Question>(() => makeQuestion(pool, stream.next(), Math.random, 2));
   const [reveal, setReveal] = useState<Word | null>(null);
@@ -107,6 +142,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
   // The loop below starts once; it reaches the latest callbacks through this ref.
   const cb = useRef({ onStart, onCorrect, onWrong, onBumps });
   cb.current = { onStart, onCorrect, onWrong, onBumps };
+  const soundOn = useRef(sound);
+  soundOn.current = sound;
   /** Called when a finger, the mouse or a key goes down and when it is let go; set by the game loop below. */
   const pressRef = useRef<() => void>(() => {});
   const releaseRef = useRef<() => void>(() => {});
@@ -146,6 +183,12 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
     /** While set, the game is paused to show the right answer; then the next question starts. */
     let pausedUntil = 0;
     let sparks: Spark[] = [];
+    let particles: Particle[] = [];
+    /** Recent positions of the bee, for the trail behind it during a run. */
+    let trail: { x: number; y: number }[] = [];
+    let trailAt = 0;
+    /** The door just flown through, lit up for a moment. */
+    let flash: { door: Door; color: string; until: number } | null = null;
     let shakeUntil = 0;
     /** When the current press started, or 0 while nothing is held. */
     let heldSince = 0;
@@ -208,11 +251,42 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
       leftEntry = entry;
       entry = door;
       // Effects stay where they were in the room being left.
-      for (const s of sparks) s.x -= shift;
+      for (const s of [...sparks, ...particles, ...trail]) s.x -= shift;
       // The view starts where it was, so the bee stays put on screen in this very frame.
       slideFrom = reduceMotion ? 0 : shift;
       camera = slideFrom;
       slideStart = now;
+    };
+
+    /** A sound, and with it a buzz on phones that can; both off with the sound switch. */
+    const feedback = (sound: Sound, buzz = 0) => {
+      if (!soundOn.current) return;
+      playSound(sound);
+      if (buzz) navigator.vibrate?.(buzz);
+    };
+
+    /** A burst of dots from where the bee met the wall, thrown back into the room. */
+    const burst = (kind: keyof typeof BURSTS, x: number, y: number, now: number, back: number) => {
+      if (reduceMotion) return;
+      const spec = BURSTS[kind];
+      const color = kind === 'right' ? colors.honey : kind === 'wrong' ? colors.bad : colors.muted;
+      const count = spec.count + Math.floor(Math.random() * (spec.extra + 1));
+      for (let i = 0; i < count; i++) {
+        const speed = spec.speed * (0.4 + 0.6 * Math.random());
+        // Pollen sprays up and back into the room; a puff and specks scatter all round.
+        const angle = kind === 'right' ? -Math.PI / 2 + back * (0.2 + Math.random() * 1.1) : Math.random() * Math.PI * 2;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          born: now,
+          life: spec.life * (0.7 + 0.3 * Math.random()),
+          color,
+          r: spec.r * (0.7 + 0.5 * Math.random()),
+        });
+      }
+      if (particles.length > MAX_PARTICLES) particles = particles.slice(-MAX_PARTICLES);
     };
 
     const onWall = ({ event, door }: WallHit, now: number) => {
@@ -220,25 +294,38 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
       // One slip against the wall is forgiven; another on the same question is a miss.
       const missed = event === 'wrong' || (event === 'bump' && bumpCounts(bumps) === 'wrong');
       speed = nextSpeed(speed, missed ? 'wrong' : event);
+      // Effects start where the bee meets the wall, and spread back into the room.
+      const back = b.dir === 1 ? -1 : 1;
+      if (door) flash = { door, color: event === 'correct' ? colors.good : colors.bad, until: now + FLASH_MS };
       if (event === 'correct') {
         run += 1;
         cb.current.onCorrect();
-        sparks.push({ text: '✓', x: b.x, y: b.y, born: now, good: true });
+        feedback('right');
+        burst('right', b.x, b.y, now, back);
+        // The word just answered floats up, kept clear of the prompt strip.
+        const y = Math.max(b.y, headroom() + 70);
+        sparks.push({ text: `✓ ${q.answer.mt}`, x: b.x, y, born: now, life: FLOAT_MS, good: true, maltese: true });
         nextQuestion();
         goThrough(door!, now);
       } else if (missed) {
         run = 0;
+        trail = [];
         cb.current.onWrong(q.answer, door ? q.options[door.option] : null);
         if (!door) shakeUntil = now + 180;
-        sparks.push({ text: '✗', x: b.x, y: b.y, born: now, good: false });
+        feedback('wrong', BUZZ.wrong);
+        burst(door ? 'wrong' : 'bump', b.x, b.y, now, back);
+        sparks.push({ text: '✗', x: b.x, y: b.y, born: now, life: 700, good: false });
         stream.repeatLater(q.answer);
         setReveal(q.answer);
         pausedUntil = now + REVEAL_MS;
       } else {
         // The first time, hitting the wall is a flying slip: same question, other wall.
         run = 0;
+        trail = [];
         bumps += 1;
         cb.current.onBumps(bumps);
+        feedback('bump', BUZZ.bump);
+        burst('bump', b.x, b.y, now, back);
         shakeUntil = now + 180;
         turnAround();
       }
@@ -246,6 +333,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
 
     pressRef.current = () => {
       heldSince = performance.now();
+      // Browsers allow sound only once the player has pressed something.
+      if (soundOn.current) wakeSound();
       if (!bee || pausedUntil) return;
       if (!running) {
         running = true;
@@ -271,7 +360,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
     };
 
     /** A wall and its door openings; only the doors ahead of the bee carry answers. */
-    const drawWall = (side: 1 | -1, doors: Door[], labelled: boolean) => {
+    const drawWall = (side: 1 | -1, doors: Door[], labelled: boolean, now: number) => {
       const x = side === 1 ? arena.width - WALL : 0;
       ctx.fillStyle = colors.wall;
       ctx.fillRect(x, 0, WALL, arena.height);
@@ -289,7 +378,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
         // The opening, with a honey-coloured frame.
         ctx.fillStyle = colors.bg;
         ctx.fillRect(x, door.top, WALL, door.bottom - door.top);
-        ctx.fillStyle = colors.honey;
+        ctx.fillStyle = flash && flash.door === door && now < flash.until ? flash.color : colors.honey;
         ctx.fillRect(x, door.top - 4, WALL, 4);
         ctx.fillRect(x, door.bottom, WALL, 4);
         if (labelled) drawLabel(side, door.top, door.bottom, doorLabel(q.options[door.option], dir, show));
@@ -441,7 +530,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
       if (!bee) return;
       ctx.save();
       ctx.clearRect(0, 0, arena.width, arena.height);
-      if (now < shakeUntil) ctx.translate(Math.sin(now / 12) * 3, 0);
+      if (now < shakeUntil && !reduceMotion) ctx.translate(Math.sin(now / 12) * 3, 0);
       ctx.fillStyle = colors.bg;
       ctx.fillRect(0, 0, arena.width, arena.height);
       // Everything below is in room coordinates and slides with the view.
@@ -453,22 +542,49 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
         drawBackdrop(room - bee.dir, back);
         ctx.save();
         ctx.translate(back, 0);
-        drawWall(behind, leftEntry ? [leftEntry] : [], false);
+        drawWall(behind, leftEntry ? [leftEntry] : [], false, now);
         ctx.restore();
       }
       drawBackdrop(room, 0);
-      drawWall(bee.dir, bee.doors, true);
-      drawWall(behind, entry ? [entry] : [], false);
+      drawWall(bee.dir, bee.doors, true, now);
+      drawWall(behind, entry ? [entry] : [], false, now);
+
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, 1 - (now - p.born) / p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const long = run >= TRAIL.long;
+      trail.forEach((t, i) => {
+        const k = (i + 1) / trail.length;
+        ctx.globalAlpha = k * (long ? 0.55 : 0.3);
+        ctx.fillStyle = colors.honey;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, BEE_RADIUS * (0.2 + 0.3 * k), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
       drawBee(bee, now);
 
-      sparks = sparks.filter((s) => now - s.born < 700);
+      sparks = sparks.filter((s) => now - s.born < s.life);
       for (const s of sparks) {
-        const age = (now - s.born) / 700;
-        ctx.globalAlpha = 1 - age;
-        ctx.font = '700 26px system-ui, sans-serif';
+        const age = (now - s.born) / s.life;
+        ctx.globalAlpha = 1 - age * age;
+        ctx.font = s.maltese ? "700 22px 'Iowan Old Style', 'Palatino Linotype', Georgia, serif" : '700 26px system-ui, sans-serif';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        // Kept inside the walls, with a halo so it reads over anything behind it.
+        const half = ctx.measureText(s.text).width / 2;
+        const x = Math.min(Math.max(s.x, WALL + 8 + half), arena.width - WALL - 8 - half);
+        const y = s.y - 20 - age * (s.maltese ? 50 : 40);
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = colors.bg;
+        ctx.strokeText(s.text, x, y);
         ctx.fillStyle = s.good ? colors.good : colors.bad;
-        ctx.fillText(s.text, Math.min(Math.max(s.x, 30), arena.width - 30), s.y - 20 - age * 40);
+        ctx.fillText(s.text, x, y);
       }
       ctx.restore();
     };
@@ -481,6 +597,13 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
       const dt = Math.min((now - (last || now)) / 1000, 1 / 30);
       last = now;
       if (!bee) return;
+
+      particles = particles.filter((p) => now - p.born < p.life);
+      for (const p of particles) {
+        p.vy += PARTICLE_GRAVITY * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+      }
 
       if (slideFrom) {
         const t = Math.min(1, (now - slideStart) / ROOM_SLIDE_MS);
@@ -501,6 +624,12 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
         const lifting = heldSince > 0 && now - heldSince >= HOLD_DELAY_MS;
         const hit = step(bee, dt, arena, lifting);
         if (hit) onWall(hit, now);
+        if (run < TRAIL.from || reduceMotion) {
+          trail = [];
+        } else if (now - trailAt >= TRAIL.everyMs) {
+          trailAt = now;
+          trail = [...trail, { x: bee.x, y: bee.y }].slice(-(run >= TRAIL.long ? TRAIL.longDots : TRAIL.dots));
+        }
       } else {
         // Hovering before the first tap.
         bee.y = arena.height * 0.45 + Math.sin(now / 300) * 8;
@@ -533,6 +662,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
             camera,
             bumps,
             doors: bee?.doors.length,
+            particles: particles.length,
+            trail: trail.length,
             answer: q.answer.id,
             options: q.options.map((w) => w.id),
           };
@@ -613,11 +744,20 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
   );
 }
 
+function SpeakerIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9h4l5-4v14l-5-4H4z" />
+      {on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13" /> : <path d="M17 9.5l5 5M22 9.5l-5 5" />}
+    </svg>
+  );
+}
+
 /**
  * Tap, or hold on, to keep the bee in the air. It bounces between two walls; the wall ahead has
  * two doors, each labelled with an answer. Fly through the right one.
  */
-export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void }) {
+export function BusyBee({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
   const [{ topic, show }] = useState(data.settings);
   // Always from Polish / English to Maltese, whatever direction the Study tab uses:
   // the doors carry the Maltese words, which is the harder way round.
@@ -635,6 +775,12 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
   const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word | null }[]>([]);
   /** Set after a bump: one more on the same question counts as a miss. */
   const [careful, setCareful] = useState(false);
+  const sound = data.settings.sound;
+  const toggleSound = () => {
+    // Turning sound on is a press, so the browser lets it start now.
+    if (!sound) wakeSound();
+    update((d) => ({ ...d, settings: { ...d.settings, sound: !d.settings.sound } }));
+  };
   /** A word's translations, in the languages chosen in Settings. */
   const translation = (w: Word) => doorLabel(w, 'mt2x', show).join(' · ');
 
@@ -709,6 +855,7 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
             pool={pool}
             dir={dir}
             show={show}
+            sound={sound}
             onStart={() => setStarted(true)}
             onCorrect={() => setTally((t) => ({ ...t, ok: t.ok + 1 }))}
             onWrong={(word, chosen) => {
@@ -725,9 +872,20 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
                   ? 'Careful: another bump is a miss'
                   : 'Tap or hold to fly up'}
             </p>
-            <button className="btn btn-secondary btn-small" onClick={() => setFinished(true)}>
-              Finish
-            </button>
+            <div className="bee-foot-actions">
+              <button
+                className="btn btn-secondary btn-small bee-sound"
+                aria-pressed={sound}
+                aria-label="Sound and vibration"
+                title={sound ? 'Sound on' : 'Sound off'}
+                onClick={toggleSound}
+              >
+                <SpeakerIcon on={sound} />
+              </button>
+              <button className="btn btn-secondary btn-small" onClick={() => setFinished(true)}>
+                Finish
+              </button>
+            </div>
           </div>
         </>
       )}

@@ -151,6 +151,18 @@ export function Settings({ data, update, account }: { data: AppData; update: Upd
               onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, autoCheck: e.target.checked } }))}
             />
           </label>
+          <label className="switch">
+            <span>
+              Sound in games
+              <small>Chimes, knocks and vibration in Busy bee</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.sound}
+              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, sound: e.target.checked } }))}
+            />
+          </label>
         </div>
       </section>
 

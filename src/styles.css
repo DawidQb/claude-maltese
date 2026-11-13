@@ -1045,6 +1045,18 @@ select {
   padding: 0 16px;
 }
 
+.bee-foot-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bee-sound {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0;
+}
+
 .bee-summary {
   justify-content: flex-start;
   overflow-y: auto;
