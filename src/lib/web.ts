@@ -41,7 +41,7 @@ export interface Round {
 }
 
 /** The key of the pad that fills a cell: lower case, with `à` and `è` filled by `a` and `e`. */
-function padKey(key: string): string {
+export function padKey(key: string): string {
   const k = key.toLowerCase();
   return k === 'à' ? 'a' : k === 'è' ? 'e' : k;
 }
