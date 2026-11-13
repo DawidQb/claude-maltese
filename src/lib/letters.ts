@@ -24,19 +24,19 @@ export const LOOKALIKES = [
 /** Punctuation that never counts for or against an answer, so it needs no key. */
 const IGNORED = /[…?!.,]/g;
 
-/** Splits a Maltese word into the keys needed to type it. */
-export function toKeys(word: string): string[] {
-  const text = word.toLowerCase().replace(/[’‘`´]/g, "'").replace(IGNORED, '').replace(/\s+/g, ' ').trim();
+/** Splits a Maltese word into the keys needed to type it; with `keepCase`, capitals stay as written. */
+export function toKeys(word: string, keepCase = false): string[] {
+  const text = word.replace(/[’‘`´]/g, "'").replace(IGNORED, '').replace(/\s+/g, ' ').trim();
   const keys: string[] = [];
   for (let i = 0; i < text.length; i++) {
-    if (text.startsWith('għ', i)) {
-      keys.push('għ');
+    if (text.slice(i, i + 2).toLowerCase() === 'għ') {
+      keys.push(text.slice(i, i + 2));
       i += 1;
     } else {
       keys.push(text[i]);
     }
   }
-  return keys;
+  return keepCase ? keys : keys.map((k) => k.toLowerCase());
 }
 
 /** A letter with its look-alikes folded into one, so "ħ" and "h" count as the same. */

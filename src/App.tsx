@@ -8,6 +8,7 @@ import { MatchPairs } from './components/games/MatchPairs';
 import { ProtectHive } from './components/games/ProtectHive';
 import { QueensOrders } from './components/games/QueensOrders';
 import { SpeedRound } from './components/games/SpeedRound';
+import { SpiderWeb } from './components/games/SpiderWeb';
 import { Home } from './components/Home';
 import { Settings } from './components/Settings';
 import { Study } from './components/Study';
@@ -50,6 +51,7 @@ export function App() {
           {activity === 'queen' && <QueensOrders data={data} update={update} onExit={close} />}
           {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
           {activity === 'spell' && <HoneycombSpell data={data} update={update} onExit={close} />}
+          {activity === 'web' && <SpiderWeb data={data} update={update} onExit={close} />}
           {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
           {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
         </div>

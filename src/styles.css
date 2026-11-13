@@ -1938,6 +1938,281 @@ select {
   margin-left: 4px;
 }
 
+/* Spider web: the scene, the meaning, the word's cells and the whole alphabet as a comb of keys. */
+.web-scene {
+  position: relative;
+  flex: 1;
+  min-height: 120px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.web-scene canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A caught word: the overlay follows once the spider is there and the scene has dimmed. */
+.web-scene .web-caught {
+  animation: web-caught-in 0.25s ease 0.45s both;
+}
+
+@keyframes web-caught-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A hit: the cells it fills pop. */
+.web-cell.is-filled {
+  animation: web-pop 0.25s ease;
+}
+
+@keyframes web-pop {
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+.web-steps {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.web-steps i {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+}
+
+.web-steps i.is-taken {
+  border-color: var(--no);
+  background: var(--no);
+}
+
+.web-scene .bee-overlay {
+  z-index: 2;
+  inset: 8px;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px;
+  transform: none;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  overflow: hidden;
+}
+
+.web-caught-word {
+  font-family: var(--serif);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.web-meaning {
+  flex: none;
+  min-height: 0;
+  gap: 0;
+  padding: 8px 16px;
+}
+
+.web-meaning .translations {
+  gap: 2px;
+}
+
+.web-meaning .translations dd {
+  font-size: 1.15rem;
+}
+
+/* The word's cells: a box per letter, wrapping between words; 18 fit in two rows of nine at 390 px. */
+.web-cells {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+}
+
+.web-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.web-cell {
+  display: grid;
+  place-items: end center;
+  width: 34px;
+  height: 40px;
+  padding-bottom: 4px;
+  border-bottom: 3px solid var(--line);
+  font-family: var(--serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.web-cell.is-given {
+  width: 12px;
+  border-bottom-color: transparent;
+  color: var(--muted);
+}
+
+.web-cell.is-filled {
+  border-bottom-color: var(--accent);
+}
+
+.web-cell.is-freed {
+  border-bottom-color: var(--known);
+  color: var(--known);
+}
+
+.web-cell.is-lost {
+  border-bottom-color: var(--no);
+  color: var(--no);
+}
+
+/* The whole alphabet: hexagonal keys, six to a row, every other row set half a key in. */
+.web-keys {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  column-gap: 4px;
+}
+
+.web-keys .key {
+  --key-edge: var(--line);
+  --key-fill: var(--surface);
+  grid-column: span 2;
+  position: relative;
+  isolation: isolate;
+  min-height: 0;
+  height: 56px;
+  margin-bottom: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.web-keys .key:nth-child(12n + 1) {
+  grid-column: 1 / span 2;
+}
+
+.web-keys .key:nth-child(12n + 7) {
+  grid-column: 2 / span 2;
+}
+
+.web-keys .key::before,
+.web-keys .key::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: inherit;
+  background: var(--key-edge);
+}
+
+.web-keys .key::after {
+  inset: 2px 2px 3px;
+  background: var(--key-fill);
+}
+
+.web-keys .key:active {
+  --key-fill: color-mix(in srgb, var(--accent) 35%, var(--surface));
+}
+
+.web-keys .key:focus-visible {
+  outline: none;
+  --key-edge: var(--accent-text);
+}
+
+.web-keys .key:disabled {
+  opacity: 1;
+  color: var(--muted);
+}
+
+.web-keys .key.is-hit {
+  --key-edge: var(--known);
+  --key-fill: color-mix(in srgb, var(--known) 22%, var(--surface));
+  color: var(--ink);
+}
+
+/* A miss: the key flashes red, then keeps a light red fill. */
+.web-keys .key.is-miss::after {
+  animation: web-miss 0.45s ease;
+}
+
+@keyframes web-miss {
+  from {
+    background: var(--no);
+  }
+}
+
+.web-keys .key.is-miss {
+  --key-edge: var(--no);
+  --key-fill: color-mix(in srgb, var(--no) 14%, var(--surface));
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* A short screen: eight keys to a row, so four rows hold the alphabet and the scene keeps its room. */
+@media (max-height: 699px) {
+  .study:has(.web-scene) {
+    gap: 8px;
+  }
+
+  .web-meaning {
+    padding: 6px 14px;
+  }
+
+  .web-cells {
+    row-gap: 2px;
+  }
+
+  .web-keys {
+    grid-template-columns: repeat(17, 1fr);
+    column-gap: 3px;
+  }
+
+  .web-keys .key {
+    height: 48px;
+    margin-bottom: -9px;
+    font-size: 1.2rem;
+  }
+
+  .web-keys .key:nth-child(12n + 1),
+  .web-keys .key:nth-child(12n + 7) {
+    grid-column: span 2;
+  }
+
+  .web-keys .key:nth-child(16n + 1) {
+    grid-column: 1 / span 2;
+  }
+
+  .web-keys .key:nth-child(16n + 9) {
+    grid-column: 2 / span 2;
+  }
+
+  .web-cell {
+    height: 34px;
+    font-size: 1.3rem;
+  }
+
+  .web-meaning .translations dd {
+    font-size: 1.05rem;
+  }
+}
+
 /* ---------- Word list ---------- */
 
 .filters {
