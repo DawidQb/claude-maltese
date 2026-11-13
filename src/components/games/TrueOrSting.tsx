@@ -5,7 +5,7 @@ import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic } from '../../lib/words';
 import { TranslationLines } from '../Cards';
-import { GameShell, MistakesList, Tally, type Mistake } from './GameShell';
+import { GameShell, MistakesList, Tally, useStillPage, type Mistake } from './GameShell';
 
 /** The timer is a row of honey cells, each holding this share of the round, draining one by one. */
 const TIMER_CELLS = 12;
@@ -118,13 +118,8 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
 
   useEffect(() => () => window.clearTimeout(nextTimer.current), []);
 
-  // While a round runs the page does not scroll, bounce or refresh: a finger on the screen is for swiping only.
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const root = document.documentElement;
-    root.classList.add('no-scroll');
-    return () => root.classList.remove('no-scroll');
-  }, [phase]);
+  // While a round runs a finger on the screen is for swiping only.
+  useStillPage(phase === 'playing');
 
   useEffect(() => {
     if (!lost) return;

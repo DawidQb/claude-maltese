@@ -22,6 +22,21 @@ export function Tally({ ok, bad }: { ok: number; bad: number }) {
   );
 }
 
+/**
+ * While `active`, the page stands still: it does not scroll, bounce or pull to refresh, so a
+ * finger on the screen is only ever part of the game. For games played by swiping or tracing.
+ */
+export function useStillPage(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const root = document.documentElement;
+    // Locked from the top, so the header is never left out of sight.
+    window.scrollTo(0, 0);
+    root.classList.add('no-scroll');
+    return () => root.classList.remove('no-scroll');
+  }, [active]);
+}
+
 /** Full-screen frame shared by the games: back button, title, status. */
 export function GameShell({ title, status, onExit, children }: Props) {
   useEffect(() => {
