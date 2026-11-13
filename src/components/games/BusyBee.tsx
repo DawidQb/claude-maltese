@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   BEE_RADIUS,
   beeWords,
+  bumpCounts,
   doorLabel,
   enterRoom,
   flap,
@@ -86,12 +87,14 @@ interface FieldProps {
   show: ShowLang;
   onStart: () => void;
   onCorrect: () => void;
-  /** The word that was asked, and the wrong answer whose door the bee flew through. */
-  onWrong: (word: Word, chosen: Word) => void;
+  /** The word that was asked, and the wrong answer whose door the bee flew through (null: the wall, once too often). */
+  onWrong: (word: Word, chosen: Word | null) => void;
+  /** Bumps into the wall on the current question so far; 0 again when a new question starts. */
+  onBumps: (bumps: number) => void;
 }
 
 /** The play area: the word at the top, the bee, the walls and their doors. One round per mount. */
-function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) {
+function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: FieldProps) {
   const [stream] = useState(() => new WordStream(pool));
   const [question, setQuestion] = useState<Question>(() => makeQuestion(pool, stream.next(), Math.random, 2));
   const [reveal, setReveal] = useState<Word | null>(null);
@@ -100,8 +103,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const promptRef = useRef<HTMLDivElement>(null);
   // The loop below starts once; it reaches the latest callbacks through this ref.
-  const cb = useRef({ onStart, onCorrect, onWrong });
-  cb.current = { onStart, onCorrect, onWrong };
+  const cb = useRef({ onStart, onCorrect, onWrong, onBumps });
+  cb.current = { onStart, onCorrect, onWrong, onBumps };
   /** Called when a finger, the mouse or a key goes down and when it is let go; set by the game loop below. */
   const pressRef = useRef<() => void>(() => {});
   const releaseRef = useRef<() => void>(() => {});
@@ -121,6 +124,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     let speed = SPEED.start;
     /** Right answers in a row. Never shown; it drives difficulty and effects. */
     let run = 0;
+    /** Bumps into the solid wall on the current question. */
+    let bumps = 0;
     /** Which room the bee is in: one more for each room to the right, one less to the left. */
     let room = 0;
     /** The door the bee came in by, on the wall behind it. Gone once it turns to face that wall. */
@@ -173,6 +178,10 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     const nextQuestion = () => {
       q = makeQuestion(pool, stream.next(), Math.random, 2);
       setQuestion(q);
+      if (bumps) {
+        bumps = 0;
+        cb.current.onBumps(bumps);
+      }
     };
 
     /** Back the other way in the same room: the wall it now faces gets fresh doors. */
@@ -199,22 +208,28 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
 
     const onWall = ({ event, door }: WallHit, now: number) => {
       const b = bee!;
-      speed = nextSpeed(speed, event);
+      // One slip against the wall is forgiven; another on the same question is a miss.
+      const missed = event === 'wrong' || (event === 'bump' && bumpCounts(bumps) === 'wrong');
+      speed = nextSpeed(speed, missed ? 'wrong' : event);
       if (event === 'correct') {
         run += 1;
         cb.current.onCorrect();
         sparks.push({ text: '✓', x: b.x, y: b.y, born: now, good: true });
         nextQuestion();
         goThrough(door!, now);
-      } else if (event === 'wrong') {
+      } else if (missed) {
         run = 0;
-        cb.current.onWrong(q.answer, q.options[door!.option]);
+        cb.current.onWrong(q.answer, door ? q.options[door.option] : null);
+        if (!door) shakeUntil = now + 180;
         sparks.push({ text: '✗', x: b.x, y: b.y, born: now, good: false });
         stream.repeatLater(q.answer);
         setReveal(q.answer);
         pausedUntil = now + REVEAL_MS;
       } else {
-        // Hitting the wall is a flying slip, not a wrong answer: same question, other wall.
+        // The first time, hitting the wall is a flying slip: same question, other wall.
+        run = 0;
+        bumps += 1;
+        cb.current.onBumps(bumps);
         shakeUntil = now + 180;
         turnAround();
       }
@@ -507,6 +522,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
             run,
             room,
             camera,
+            bumps,
             answer: q.answer.id,
             options: q.options.map((w) => w.id),
           };
@@ -606,7 +622,9 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
   const [finished, setFinished] = useState(false);
   const [tally, setTally] = useState({ ok: 0, bad: 0 });
   /** Every mistake this round, in order: what was asked and which wrong answer was picked. */
-  const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word }[]>([]);
+  const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word | null }[]>([]);
+  /** Set after a bump: one more on the same question counts as a miss. */
+  const [careful, setCareful] = useState(false);
   /** A word's translations, in the languages chosen in Settings. */
   const translation = (w: Word) => doorLabel(w, 'mt2x', show).join(' · ');
 
@@ -616,6 +634,7 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
     setFinished(false);
     setTally({ ok: 0, bad: 0 });
     setMistakes([]);
+    setCareful(false);
   };
 
   return (
@@ -648,7 +667,14 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
                         <b>✓</b> <span lang="mt">{word.mt}</span>
                       </span>
                       <span className="mistake mistake-wrong">
-                        <b>✗</b> you chose <span lang="mt">{chosen.mt}</span>
+                        <b>✗</b>{' '}
+                        {chosen ? (
+                          <>
+                            you chose <span lang="mt">{chosen.mt}</span>
+                          </>
+                        ) : (
+                          'hit the wall twice'
+                        )}
                       </span>
                     </div>
                   </li>
@@ -679,9 +705,16 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
               setTally((t) => ({ ...t, bad: t.bad + 1 }));
               setMistakes((list) => [...list, { word, chosen }]);
             }}
+            onBumps={(bumps) => setCareful(bumps > 0)}
           />
           <div className="bee-foot">
-            <p className="bee-hint">{started ? 'Tap or hold to fly up' : 'Tap to start, then fly through the right door'}</p>
+            <p className="bee-hint">
+              {!started
+                ? 'Tap to start, then fly through the right door'
+                : careful
+                  ? 'Careful: another bump is a miss'
+                  : 'Tap or hold to fly up'}
+            </p>
             <button className="btn btn-secondary btn-small" onClick={() => setFinished(true)}>
               Finish
             </button>

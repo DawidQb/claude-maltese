@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   BEE_RADIUS,
   beeWords,
+  bumpCounts,
   doorLabel,
   enterRoom,
   flap,
+  MAX_BUMPS,
   newBee,
   nextSpeed,
   placeDoors,
@@ -260,6 +262,15 @@ describe('entering the next room', () => {
       expect(t).toBeLessThan(full * 1.2);
     });
   }
+});
+
+describe('bumpCounts', () => {
+  it('forgives one bump per question and counts the next as a miss', () => {
+    expect(MAX_BUMPS).toBe(1);
+    expect(bumpCounts(0)).toBe('bump');
+    expect(bumpCounts(1)).toBe('wrong');
+    expect(bumpCounts(2)).toBe('wrong');
+  });
 });
 
 describe('nextSpeed', () => {

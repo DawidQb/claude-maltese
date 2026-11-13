@@ -57,6 +57,14 @@ const FLOOR_HOP = 330;
 const DOOR_PAD = 14;
 const DOOR_GAP = 28;
 
+/** Bumps into the solid wall forgiven per question; the next one counts as a wrong answer. */
+export const MAX_BUMPS = 1;
+
+/** What a bump into the solid wall counts as, given how many this question has had already. */
+export function bumpCounts(bumpsSoFar: number): 'bump' | 'wrong' {
+  return bumpsSoFar < MAX_BUMPS ? 'bump' : 'wrong';
+}
+
 /**
  * Horizontal speed as a fraction of the arena width per second. It starts at about
  * three seconds per crossing and never drops below two, so the labels stay readable.
