@@ -24,6 +24,8 @@ export interface Settings {
   verbForms: boolean;
   /** Sound and vibration in the games. */
   sound: boolean;
+  /** Bees flying about in the background of the whole app. */
+  bees: boolean;
 }
 
 export interface AppData {
@@ -45,7 +47,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0, hiveBest: 0 },
@@ -81,6 +83,7 @@ export function sanitize(input: unknown): AppData | null {
     plurals: s.plurals !== false,
     verbForms: s.verbForms !== false,
     sound: s.sound !== false,
+    bees: s.bees === true,
   };
 
   const st = (src.streak ?? {}) as Partial<Streak>;

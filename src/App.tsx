@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { BeeSwarm } from './components/BeeSwarm';
 import { Games, type GameId } from './components/Games';
 import { BusyBee } from './components/games/BusyBee';
 import { InfiniteTyping } from './components/games/InfiniteTyping';
@@ -34,42 +35,50 @@ export function App() {
   const deckVersion = useDeck(activity === null, update);
   const today = toISODate(new Date());
 
+  const swarm = data.settings.bees && <BeeSwarm />;
+
   if (activity) {
     return (
-      <div className="shell">
-        {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
-        {activity === 'bee' && <BusyBee data={data} update={update} onExit={close} />}
-        {activity === 'hive' && <ProtectHive data={data} update={update} onExit={close} />}
-        {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
-        {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
-        {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
-      </div>
+      <>
+        {swarm}
+        <div className="shell">
+          {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
+          {activity === 'bee' && <BusyBee data={data} update={update} onExit={close} />}
+          {activity === 'hive' && <ProtectHive data={data} update={update} onExit={close} />}
+          {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
+          {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
+          {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <span className="brand" lang="mt">
-          naħla
-        </span>
-        <span className="brand-sub">Maltese flashcards</span>
-      </header>
+    <>
+      {swarm}
+      <div className="shell">
+        <header className="topbar">
+          <span className="brand" lang="mt">
+            naħla
+          </span>
+          <span className="brand-sub">Maltese flashcards</span>
+        </header>
 
-      <main className="content" key={deckVersion}>
-        {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setActivity('study')} />}
-        {tab === 'games' && <Games data={data} update={update} onPlay={setActivity} />}
-        {tab === 'words' && <WordList data={data} />}
-        {tab === 'settings' && <Settings data={data} update={update} account={account} />}
-      </main>
+        <main className="content" key={deckVersion}>
+          {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setActivity('study')} />}
+          {tab === 'games' && <Games data={data} update={update} onPlay={setActivity} />}
+          {tab === 'words' && <WordList data={data} />}
+          {tab === 'settings' && <Settings data={data} update={update} account={account} />}
+        </main>
 
-      <nav className="tabs" aria-label="Sections">
-        {TABS.map((t) => (
-          <button key={t.id} className="tab" aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </nav>
-    </div>
+        <nav className="tabs" aria-label="Sections">
+          {TABS.map((t) => (
+            <button key={t.id} className="tab" aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+    </>
   );
 }

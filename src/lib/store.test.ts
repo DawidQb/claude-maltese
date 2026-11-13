@@ -52,12 +52,12 @@ describe('sanitize', () => {
       settings: { newPerDay: -4, show: 'de', direction: 'x2mt', topic: 'Dinosaurs', typing: 'yes' },
     });
     expect(out?.cards).toEqual({ 'mt2x:ilma': { box: 5, due: '2026-03-11' } });
-    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true });
+    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false });
   });
 
   it('fills in settings added after a progress file was saved', () => {
     const out = sanitize({ version: 1, cards: {}, settings: { newPerDay: 5, show: 'pl', direction: 'mt2x' } });
-    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true });
+    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false });
   });
 
   it('keeps the speed-round record and ignores a broken one', () => {
@@ -102,6 +102,12 @@ describe('sanitize', () => {
     expect(sanitize({ version: 1, cards: {}, settings: { sound: false } })?.settings.sound).toBe(false);
     expect(sanitize({ version: 1, cards: {}, settings: {} })?.settings.sound).toBe(true);
     expect(sanitize({ version: 1, cards: {}, settings: { sound: 'off' } })?.settings.sound).toBe(true);
+  });
+
+  it('keeps the background bees on when saved that way, and off when missing or broken', () => {
+    expect(sanitize({ version: 1, cards: {}, settings: { bees: true } })?.settings.bees).toBe(true);
+    expect(sanitize({ version: 1, cards: {}, settings: {} })?.settings.bees).toBe(false);
+    expect(sanitize({ version: 1, cards: {}, settings: { bees: 'yes' } })?.settings.bees).toBe(false);
   });
 
   it('keeps verb forms switched off when saved that way', () => {
