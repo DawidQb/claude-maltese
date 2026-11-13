@@ -2214,10 +2214,19 @@ select {
 }
 
 /* True or sting: the visitor's card, swiped or decided with the two buttons under it. */
+/* While a round of True or sting runs, the page stands still under the finger. */
+html.no-scroll,
+html.no-scroll body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
 .sting-card {
   gap: 6px;
+  min-height: 120px;
   padding: 20px 18px;
-  touch-action: pan-y;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   transition: transform 0.18s ease, box-shadow 0.12s ease;

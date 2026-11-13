@@ -118,6 +118,14 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
 
   useEffect(() => () => window.clearTimeout(nextTimer.current), []);
 
+  // While a round runs the page does not scroll, bounce or refresh: a finger on the screen is for swiping only.
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const root = document.documentElement;
+    root.classList.add('no-scroll');
+    return () => root.classList.remove('no-scroll');
+  }, [phase]);
+
   useEffect(() => {
     if (!lost) return;
     const id = window.setTimeout(() => setLost(null), LOST_FLASH_MS);
