@@ -23,27 +23,41 @@ npm run build    # type-check and build to dist/
 
 ## Edit the words
 
-The deck is `src/data/words.json`: a list of topics, each with rows of
-`[Maltese, Polish, English]`. A noun can carry its plural as a fourth item, itself a
-`[Maltese, Polish, English]` row:
+The deck lives in the Supabase database, in the `topics` and `words` tables. Edit it in
+the Supabase dashboard (Table Editor or SQL Editor); the app has no write access to it.
+Every device downloads the deck when the app starts (and again when it comes back to the
+screen after ten minutes), keeps a copy for offline use, and switches to it once no study
+session or game is running.
+
+- `topics`: `name`, an optional `note` shown with its words, and `position` (ascending).
+- `words`: `topic_id`, `mt` (Maltese), `pl`, `en`, and `position` within the topic.
+  - A plural form is a row of its own with `plural_of` set to the Maltese singular. It is
+    shown right after the singular, in the singular's topic.
+  - A conjugated verb form has `form_of` set to the verb's dictionary form, itself a row.
+
+The Maltese word is the key for saved progress, so changing its spelling resets progress
+for that word (plurals and verb forms pointing at it follow the change); moving a word to
+another topic does not. No Maltese word or Polish or English translation may appear twice,
+so every question has one answer: the database refuses duplicates, and the app also drops
+any row it cannot use.
+
+`src/data/words.json` is the deck the app ships with. It is used until the first download
+succeeds, without a Supabase key, and by the tests. It holds a list of topics, each with
+rows of `[Maltese, Polish, English]`; a noun can carry its plural as a fourth item, itself a
+`[Maltese, Polish, English]` row, and a conjugated verb form names its verb as the fourth
+item instead:
 
 ```json
 ["ktieb", "książka", "book", ["kotba", "książki", "books"]]
-```
-
-A conjugated verb form names its verb as the fourth item instead:
-
-```json
 ["żfinna", "tańczyliśmy", "we danced", "żifen"]
 ```
 
-The Maltese word is the key for saved progress, so changing its spelling resets progress
-for that word; moving a word to another topic does not. No Polish or English translation
-may appear twice in the deck (the tests check this), so every question has one answer.
+`node scripts/words-to-sql.mjs` turns it into the seed migration that fills an empty database.
 
 ## Accounts and sync (Supabase)
 
-Signing in is optional. It uses an emailed code (or the link in the same email) through
+The project holds three things: accounts (Supabase Auth), each account's progress, and the
+word deck (see above). Signing in is optional. It uses an emailed code (or the link in the same email) through
 Supabase Auth, and stores each account's progress as one row of the `progress` table.
 Settings are not synced; each device keeps its own.
 
@@ -55,21 +69,23 @@ Settings are not synced; each device keeps its own.
   overwriting each other.
 - Reset and Import replace the account's progress and bump its `generation`; other devices
   then take the account's copy instead of merging their old cards back in.
-- The merge and sync logic is in `src/lib/merge.ts` and `src/lib/sync.ts` (tested without a
-  network); `src/lib/supabase.ts` holds the project URL and key, and `src/lib/account.ts`
-  the React hook.
+- The merge and sync logic is in `src/lib/merge.ts` and `src/lib/sync.ts`, and the deck
+  download in `src/lib/deck.ts` (all tested without a network); `src/lib/supabase.ts` holds
+  the project URL and key; `src/lib/account.ts` and `src/lib/useDeck.ts` are the React hooks.
 
 Setting up a Supabase project:
 
-1. SQL Editor: run `supabase/migrations/20261113000000_progress.sql` once.
+1. SQL Editor: run the three files in `supabase/migrations` once each, in name order:
+   the progress table, the word tables, then the seed that loads the shipped deck.
 2. Authentication → URL Configuration: set Site URL to the GitHub Pages address and add it,
    plus `http://localhost:5173`, to Redirect URLs.
 3. Authentication → Email Templates → Magic Link: add `{{ .Token }}` to the message, so the
    email carries a code as well as a link. An app installed on the home screen cannot catch
    the link (it opens in the browser), so it signs in with the code.
-4. Put the project URL and its anon (publishable) key in `src/lib/supabase.ts`. Both are
-   public; row-level security keeps each account's row private. Never use the
-   `service_role` key in the app. With the key left empty, the Account section is hidden.
+4. Put the project URL and its publishable key in `src/lib/supabase.ts`. Both are public;
+   row-level security keeps each account's row private and the deck read-only. Never put a
+   secret or `service_role` key in the app. With the key left empty, the Account section is
+   hidden and the app uses the shipped deck.
 
 ## Offline support
 

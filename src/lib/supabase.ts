@@ -1,13 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RemoteApi, Row } from './sync';
 
-// Both values are public by design: they end up in the browser either way, and the
-// row-level security rules in supabase/migrations keep each account's progress private.
-// Never put the service_role key here.
+// Both values (the project URL and its publishable key) are public by design: they end up
+// in the browser either way, and the row-level security rules in supabase/migrations keep
+// each account's progress private and the deck read-only. Never put a secret or
+// service_role key here.
 export const SUPABASE_URL = 'https://xxygzmaesmsgxjwqbuab.supabase.co';
-export const SUPABASE_KEY = '';
+export const SUPABASE_KEY: string = 'sb_publishable_CIrCOfHRUkVCrhJmQvYclQ_MVciSjVL';
 
-/** False until the key is filled in; the app then works exactly as before, without accounts. */
+/** With the key left empty the app works without accounts and with the shipped deck only. */
 export const accountsEnabled = SUPABASE_KEY !== '';
 
 let client: Promise<SupabaseClient> | null = null;

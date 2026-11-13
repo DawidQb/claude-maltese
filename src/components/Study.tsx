@@ -13,7 +13,6 @@ interface Props {
   onExit: () => void;
 }
 
-const BY_ID = new Map(WORDS.map((w) => [w.id, w]));
 const EXTRA_NEW = 10;
 
 export function Study({ data, update, today, onExit }: Props) {
@@ -22,6 +21,8 @@ export function Study({ data, update, today, onExit }: Props) {
   const { direction: dir, topic, typing: typingSetting, show } = settings;
   const typing = dir === 'x2mt' && typingSetting;
   const wordIds = useMemo(() => wordsInTopic(topic, settings).map((w) => w.id), [topic, settings]);
+  // The deck in use when the session started; a newer one is applied after the session.
+  const [byId] = useState(() => new Map(WORDS.map((w) => [w.id, w])));
 
   const [queue, setQueue] = useState<string[]>(() =>
     buildSession({ wordIds, cards: data.cards, dir, today, newLeft: newLeft(data, dir, today) }),
@@ -33,7 +34,7 @@ export function Study({ data, update, today, onExit }: Props) {
   // Counts answers, so every question gets a fresh card, even the same word twice in a row.
   const [turn, setTurn] = useState(0);
 
-  const current = queue.length > 0 ? BY_ID.get(queue[0]) : undefined;
+  const current = queue.length > 0 ? byId.get(queue[0]) : undefined;
   const unseenLeft = wordIds.filter((id) => !data.cards[cardKey(dir, id)]).length;
 
   useEffect(requestPersistentStorage, []);
