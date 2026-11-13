@@ -52,18 +52,27 @@ describe('sanitize', () => {
       settings: { newPerDay: -4, show: 'de', direction: 'x2mt', topic: 'Dinosaurs', typing: 'yes' },
     });
     expect(out?.cards).toEqual({ 'mt2x:ilma': { box: 5, due: '2026-03-11' } });
-    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true });
+    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true });
   });
 
   it('fills in settings added after a progress file was saved', () => {
     const out = sanitize({ version: 1, cards: {}, settings: { newPerDay: 5, show: 'pl', direction: 'mt2x' } });
-    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true });
+    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true });
   });
 
   it('keeps the speed-round record and ignores a broken one', () => {
     expect(sanitize({ version: 1, cards: {}, games: { speedBest: 17 } })?.games).toEqual({ speedBest: 17 });
     expect(sanitize({ version: 1, cards: {}, games: { speedBest: 'lots' } })?.games).toEqual({ speedBest: 0 });
     expect(sanitize({ version: 1, cards: {} })?.games).toEqual({ speedBest: 0 });
+  });
+
+  it('keeps the game direction apart from the Study direction, Polish / English → Maltese by default', () => {
+    const kept = sanitize({ version: 1, cards: {}, settings: { direction: 'x2mt', gameDirection: 'mt2x' } });
+    expect(kept?.settings.gameDirection).toBe('mt2x');
+    expect(kept?.settings.direction).toBe('x2mt');
+    expect(sanitize({ version: 1, cards: {}, settings: { direction: 'mt2x' } })?.settings.gameDirection).toBe('x2mt');
+    expect(sanitize({ version: 1, cards: {}, settings: { gameDirection: 'sideways' } })?.settings.gameDirection).toBe('x2mt');
+    expect(sanitize({ version: 1, cards: {}, settings: { gameDirection: 7 } })?.settings.gameDirection).toBe('x2mt');
   });
 
   it('keeps a valid topic and the typing switch', () => {

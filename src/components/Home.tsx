@@ -28,6 +28,24 @@ export function TopicOptions({ include }: { include: Include }) {
   );
 }
 
+/** The two-button direction switch, with its heading. `id` labels the group, so it must be unique on the page. */
+export function DirectionPicker({ id, value, onChange }: { id: string; value: Direction; onChange: (dir: Direction) => void }) {
+  return (
+    <div>
+      <h2 id={id} className="eyebrow">
+        Direction
+      </h2>
+      <div className="segmented" role="group" aria-labelledby={id}>
+        {(['mt2x', 'x2mt'] as Direction[]).map((d) => (
+          <button key={d} aria-pressed={value === d} onClick={() => onChange(d)}>
+            {DIRECTION_LABEL[d]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Home({ data, update, today, onStudy }: Props) {
   const { direction: dir, topic, typing } = data.settings;
   const words = wordsInTopic(topic, data.settings);
@@ -47,18 +65,7 @@ export function Home({ data, update, today, onStudy }: Props) {
   return (
     <div className="stack">
       <section className="setup" aria-label="Session setup">
-        <div>
-          <h2 id="dir-label" className="eyebrow">
-            Direction
-          </h2>
-          <div className="segmented" role="group" aria-labelledby="dir-label">
-            {(['mt2x', 'x2mt'] as Direction[]).map((d) => (
-              <button key={d} aria-pressed={dir === d} onClick={() => set({ direction: d })}>
-                {DIRECTION_LABEL[d]}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DirectionPicker id="dir-label" value={dir} onChange={(d) => set({ direction: d })} />
 
         {dir === 'x2mt' && (
           <label className="switch">

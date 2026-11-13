@@ -8,7 +8,10 @@ export interface Settings {
   newPerDay: number;
   /** Which translations appear on the card. */
   show: ShowLang;
+  /** Direction on the Study tab. Progress is counted per direction. */
   direction: Direction;
+  /** Direction in the games that ask one way round (Busy bee, Speed round, Protect the hive). Separate from the Study direction. */
+  gameDirection: Direction;
   /** A topic name, or ALL_TOPICS. */
   topic: string;
   /** Spell the Maltese word on the letter pad instead of flipping the card (Polish/English → Maltese only). */
@@ -42,7 +45,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0 },
@@ -71,6 +74,7 @@ export function sanitize(input: unknown): AppData | null {
     newPerDay: typeof s.newPerDay === 'number' && s.newPerDay >= 0 ? Math.min(50, Math.round(s.newPerDay)) : base.settings.newPerDay,
     show: s.show === 'pl' || s.show === 'en' || s.show === 'both' ? s.show : base.settings.show,
     direction: s.direction === 'x2mt' ? 'x2mt' : 'mt2x',
+    gameDirection: s.gameDirection === 'mt2x' ? 'mt2x' : 'x2mt',
     topic: typeof s.topic === 'string' && TOPICS.includes(s.topic) ? s.topic : ALL_TOPICS,
     typing: s.typing === true,
     autoCheck: s.autoCheck !== false,
