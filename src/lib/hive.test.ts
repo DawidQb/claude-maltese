@@ -7,6 +7,10 @@ import {
   clash,
   fillTray,
   HONEY,
+  HORNET,
+  hornetNext,
+  hornetSecond,
+  newHornet,
   laneCount,
   hivePool,
   hiveWords,
@@ -291,6 +295,39 @@ describe('clash and canEnter', () => {
     expect(canEnter(a, [inv(a)])).toBe(false);
     expect(canEnter(word('b', 't', 'kot', 'x'), [inv(a)])).toBe(false);
     expect(canEnter(word('b'), [inv(a)])).toBe(true);
+  });
+});
+
+describe('the hornet', () => {
+  it('carries the last word of every third wave', () => {
+    expect(hornetNext(3, 1)).toBe(true);
+    expect(hornetNext(6, 1)).toBe(true);
+    expect(hornetNext(3, 2)).toBe(false);
+    expect(hornetNext(1, 1)).toBe(false);
+    expect(hornetNext(4, 1)).toBe(false);
+  });
+
+  it('is slower than the words before it, and takes two hits', () => {
+    const h = newHornet(1, word('a'), 0);
+    const w = inv(word('b'), 1, 0);
+    advance([h, w], 1000, 20_000);
+    expect(w.y).toBeCloseTo(0.05);
+    expect(h.y).toBeCloseTo(0.05 / HORNET.slow);
+    expect(h.hits).toBe(2);
+  });
+
+  it('shows the plural next when the pool has it, otherwise leaves the choice to the stream', () => {
+    const kot = { ...word('qattus'), plural: 'qtates' };
+    const koty = { ...word('qtates'), pluralOf: 'qattus' };
+    expect(hornetSecond(kot, [kot, koty], [newHornet(1, kot, 0)])).toBe(koty);
+    expect(hornetSecond(kot, [kot], [newHornet(1, kot, 0)])).toBeNull();
+    expect(hornetSecond(word('a'), [word('a')], [])).toBeNull();
+  });
+
+  it('skips the plural while it, or a word like it, is already on the field', () => {
+    const kot = { ...word('qattus'), plural: 'qtates' };
+    const koty = { ...word('qtates'), pluralOf: 'qattus' };
+    expect(hornetSecond(kot, [kot, koty], [newHornet(1, kot, 0), inv(koty, 1, 0.5)])).toBeNull();
   });
 });
 

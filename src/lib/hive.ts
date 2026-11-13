@@ -74,6 +74,37 @@ export interface Invader {
   word: Word;
   lane: number;
   y: number;
+  /** Set on a hornet: the hits it still takes. */
+  hits?: number;
+  /** Set on a hornet: its crossing takes this many times longer. */
+  slow?: number;
+}
+
+/**
+ * The last word of every `every`th wave is carried by a hornet: larger, `slow` times slower (it is
+ * last, so nothing behind it catches up), and it takes `hits` hits; after each but the last it
+ * shows another word.
+ */
+export const HORNET = { every: 3, slow: 1.5, hits: 2 };
+
+/** Whether the next word to enter, with `toSpawn` words of wave `wave` still to come, is a hornet. */
+export function hornetNext(wave: number, toSpawn: number): boolean {
+  return wave % HORNET.every === 0 && toSpawn === 1;
+}
+
+/** A hornet entering the field with this word. */
+export function newHornet(id: number, word: Word, lane: number): Invader {
+  return { id, word, lane, y: 0, hits: HORNET.hits, slow: HORNET.slow };
+}
+
+/**
+ * The word a hornet shows after a hit: the plural of its word when it has one in the pool and it
+ * may enter the field; otherwise null, and the next word from the stream is taken instead.
+ */
+export function hornetSecond(word: Word, pool: readonly Word[], invaders: readonly Invader[]): Word | null {
+  if (!word.plural) return null;
+  const plural = pool.find((w) => w.id === word.plural);
+  return plural && canEnter(plural, invaders.filter((i) => i.word.id !== word.id)) ? plural : null;
 }
 
 /** Lanes on a field this many px wide. */
@@ -108,10 +139,9 @@ export function canEnter(word: Word, invaders: readonly Invader[]): boolean {
 
 /** Moves every word down by `dtMs`, and takes out and returns those that reached the hive. */
 export function advance(invaders: Invader[], dtMs: number, crossMs: number): Invader[] {
-  const step = dtMs / crossMs;
   const landed: Invader[] = [];
   for (let i = invaders.length - 1; i >= 0; i--) {
-    invaders[i].y += step;
+    invaders[i].y += dtMs / (crossMs * (invaders[i].slow ?? 1));
     if (invaders[i].y >= 1) landed.unshift(...invaders.splice(i, 1));
   }
   return landed;

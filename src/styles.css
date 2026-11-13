@@ -1237,6 +1237,46 @@ select {
   background: color-mix(in srgb, var(--no) 14%, var(--surface));
 }
 
+/* A hornet: a larger word in a striped frame, with a dot per hit it still takes. */
+.hive-word.is-hornet {
+  padding: 8px 16px 10px;
+  border: 3px solid #2a2420;
+  box-shadow: 0 0 0 3px var(--accent), var(--shadow);
+  font-size: 1.1rem;
+}
+
+.hive-word.is-hornet .tile-mt {
+  font-size: 1.35rem;
+}
+
+.hive-word.is-hornet.is-picked,
+.hive-word.is-hornet.is-wrong {
+  border-color: #2a2420;
+}
+
+.hornet-hits {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.hornet-hits i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--no);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* The hive: the strip at the bottom of the field that the words must not reach. The canvas draws it. */
 .hive-base {
   position: absolute;

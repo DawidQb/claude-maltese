@@ -6,6 +6,9 @@ import {
   fillTray,
   HONEY,
   hivePool,
+  hornetNext,
+  hornetSecond,
+  newHornet,
   honeyAfterWave,
   laneCount,
   pickLane,
@@ -97,8 +100,8 @@ interface Game {
   wrong: { word: number; chip: string; until: number } | null;
   /** The word that reached the hive, shown while the field stands still. */
   reveal: Word | null;
-  /** Words just shot: no longer in play, still drawn while the beams reach them. */
-  zapped: { inv: Invader; until: number; width: number }[];
+  /** Words just shot, while the beams reach them: gone from play, or (`keep`) a hornet hit once that flies on. */
+  zapped: { inv: Invader; until: number; width: number; keep: boolean }[];
   /** Chips of words just shot, green until `until`, then replaced. */
   hitChips: { id: string; until: number }[];
   /** The last surge: when, and which words it moved, so they can slide. */
@@ -167,6 +170,7 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
   /** The element of each word on the field, and its measured height. */
   const els = useRef(new Map<number, HTMLElement>());
   const heights = useRef(new Map<number, number>());
+  const widths = useRef(new Map<number, number>());
   const motion = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const game = useRef<Game>(null as unknown as Game);
@@ -218,7 +222,10 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
     for (const inv of [...g.invaders, ...g.zapped.map((z) => z.inv)]) {
       const el = els.current.get(inv.id);
       if (!el) continue;
-      if (!heights.current.has(inv.id)) heights.current.set(inv.id, el.offsetHeight);
+      if (!heights.current.has(inv.id)) {
+        heights.current.set(inv.id, el.offsetHeight);
+        widths.current.set(inv.id, el.offsetWidth);
+      }
       el.style.transform = `translate(-50%, ${Math.round(wordBox(inv).top)}px)`;
     }
   };
@@ -245,7 +252,7 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
   };
 
   /** Set by the loop: fires at a word just shot, and shakes the field after a wrong pair. */
-  const fireRef = useRef<(inv: Invader) => void>(() => {});
+  const fireRef = useRef<(inv: Invader, keep: boolean) => void>(() => {});
   const wrongRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -350,7 +357,8 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
         if (canEnter(w, g.invaders)) word = w;
       }
       if (!word) return false;
-      g.invaders.push({ id: g.nextId++, word, lane, y: 0 });
+      const id = g.nextId++;
+      g.invaders.push(hornetNext(g.wave, g.toSpawn) ? newHornet(id, word, lane) : { id, word, lane, y: 0 });
       g.toSpawn -= 1;
       g.sinceSpawn = 0;
       refill(g, [word]);
@@ -390,8 +398,11 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
       for (const z of g.zapped.filter((z) => g.clock >= z.until)) {
         const box = wordBox(z.inv);
         burst('zap', box.x, box.top + box.h / 2, colors.honey);
-        els.current.delete(z.inv.id);
-        heights.current.delete(z.inv.id);
+        if (!z.keep) {
+          els.current.delete(z.inv.id);
+          heights.current.delete(z.inv.id);
+          widths.current.delete(z.inv.id);
+        }
         changed = true;
       }
       g.zapped = g.zapped.filter((z) => g.clock < z.until);
@@ -423,7 +434,7 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
           changed = true;
         } else if (spawnDue(g.spec, g.invaders, g.toSpawn, g.sinceSpawn)) {
           changed = spawn() || changed;
-        } else if (g.toSpawn === 0 && g.invaders.length === 0 && g.zapped.length === 0) {
+        } else if (g.toSpawn === 0 && g.invaders.length === 0 && g.zapped.every((z) => z.keep)) {
           nextWave();
           changed = true;
         }
@@ -529,11 +540,35 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
       }
     };
 
+    /** A hornet's wings, beating behind its word. */
+    const drawWings = () => {
+      for (const inv of g.invaders) {
+        if (!inv.hits) continue;
+        const box = wordBox(inv);
+        const half = (widths.current.get(inv.id) ?? 120) / 2;
+        const beat = motion.current ? 0 : Math.sin(g.clock / 30) * 0.35;
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.strokeStyle = colors.muted;
+        ctx.lineWidth = 1;
+        for (const side of [-1, 1]) {
+          ctx.save();
+          ctx.translate(box.x + side * (half - 6), box.top + box.h * 0.35);
+          ctx.rotate(side * (-0.5 + beat));
+          ctx.beginPath();
+          ctx.ellipse(side * 16, -6, 20, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    };
+
     const draw = () => {
       const w = fieldWidth();
       const fall = fallHeight();
       ctx.clearRect(0, 0, w, field.clientHeight);
       drawHive(w, fall, baseHeight());
+      drawWings();
       const b = beeAt();
       const eye = beeEye(b.x, b.y, BEE_RADIUS, bee.facing, bee.tilt);
       drawBeams(eye);
@@ -576,12 +611,12 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
       draw();
     };
 
-    /** Fires the lasers at a word just shot: the bee snaps round to face it. */
-    fireRef.current = (inv: Invader) => {
+    /** Fires the lasers at a word just shot: the bee snaps round to face it. `keep`: a hornet that flies on. */
+    fireRef.current = (inv: Invader, keep: boolean) => {
       const box = wordBox(inv);
       Object.assign(bee, aim(box.x, box.top + box.h / 2));
       const width = g.run >= 6 ? BEAM.run6 : g.run >= 3 ? BEAM.run3 : BEAM.width;
-      g.zapped.push({ inv, until: g.clock + BEAM_MS, width });
+      g.zapped.push({ inv, until: g.clock + BEAM_MS, width, keep });
       feedback('laser', 0, g.run >= 6 ? BEAM.highPitch : 1);
     };
     wrongRef.current = () => {
@@ -610,7 +645,7 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
             run: g.run,
             toSpawn: g.toSpawn,
             lanes: lanes(),
-            invaders: g.invaders.map((i) => ({ id: i.id, word: i.word.id, lane: i.lane, y: i.y })),
+            invaders: g.invaders.map((i) => ({ id: i.id, word: i.word.id, lane: i.lane, y: i.y, hits: i.hits })),
             tray: g.tray.map((w) => w?.id ?? null),
             choice: g.choice,
             zapped: g.zapped.length,
@@ -631,6 +666,18 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
   // New elements get their position before they are painted.
   useLayoutEffect(place);
 
+  /** The word a hornet shows after a hit: its plural if it can, or the next word that may enter. */
+  const nextHornetWord = (g: Game, inv: Invader): Word | null => {
+    const others = g.invaders.filter((i) => i !== inv);
+    const plural = hornetSecond(inv.word, pool, g.invaders);
+    if (plural) return plural;
+    for (let tries = 0; tries < pool.length; tries++) {
+      const w = stream.next();
+      if (w.id !== inv.word.id && canEnter(w, others)) return w;
+    }
+    return null;
+  };
+
   const pick = (side: 'word' | 'chip', id: number | string) => {
     const g = game.current;
     if (g.phase !== 'playing') return;
@@ -646,10 +693,20 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
     const chip = g.tray.find((w) => w?.id === next.chip);
     if (inv && chip && inv.word.id === chip.id) {
       // The hit counts now; the beams and the burst follow.
-      g.invaders = g.invaders.filter((i) => i !== inv);
       g.run += 1;
       g.hitChips.push({ id: chip.id, until: g.clock + HIT_CHIP_MS });
-      fireRef.current(inv);
+      const second = inv.hits && inv.hits > 1 ? nextHornetWord(g, inv) : null;
+      if (second) {
+        // A hornet hit once flies on where it is, with another word.
+        inv.word = second;
+        inv.hits! -= 1;
+        heights.current.delete(inv.id);
+        refill(g, [second]);
+        fireRef.current(inv, true);
+      } else {
+        g.invaders = g.invaders.filter((i) => i !== inv);
+        fireRef.current(inv, false);
+      }
       cb.current.onHit();
     } else if (inv && chip) {
       g.run = 0;
@@ -686,21 +743,32 @@ function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: 
             <button
               key={inv.id}
               ref={keep(inv.id)}
-              className={`hive-word${chosen ? ' is-picked' : ''}${wrong ? ' is-wrong' : ''}`}
+              className={`hive-word${inv.hits ? ' is-hornet' : ''}${chosen ? ' is-picked' : ''}${wrong ? ' is-wrong' : ''}`}
               style={style(inv)}
               data-word={inv.word.id}
+              data-hits={inv.hits}
               aria-pressed={chosen}
               onClick={() => pick('word', inv.id)}
             >
+              {inv.hits && (
+                <span className="hornet-hits" title={`Hornet: ${inv.hits === 1 ? 'one more hit' : `${inv.hits} hits`}`}>
+                  <span className="sr-only">Hornet, {inv.hits === 1 ? 'one more hit' : `${inv.hits} hits`}: </span>
+                  {Array.from({ length: inv.hits }, (_, k) => (
+                    <i key={k} aria-hidden="true" />
+                  ))}
+                </span>
+              )}
               <Side word={inv.word} maltese={askMaltese} show={show} />
             </button>
           );
         })}
-        {g.zapped.map(({ inv }) => (
-          <div key={inv.id} ref={keep(inv.id)} className="hive-word is-zapped" style={style(inv)} aria-hidden="true">
-            <Side word={inv.word} maltese={askMaltese} show={show} />
-          </div>
-        ))}
+        {g.zapped
+          .filter((z) => !z.keep)
+          .map(({ inv }) => (
+            <div key={inv.id} ref={keep(inv.id)} className="hive-word is-zapped" style={style(inv)} aria-hidden="true">
+              <Side word={inv.word} maltese={askMaltese} show={show} />
+            </div>
+          ))}
 
         {g.phase === 'between' && (
           <div className="bee-overlay hive-banner" role="status">
