@@ -1,7 +1,7 @@
-import type { AppData, Update } from '../lib/store';
-import { DIRECTION_LABEL, TopicOptions } from './Home';
+import type { AppData, Settings, Update } from '../lib/store';
+import { DirectionPicker, TopicOptions } from './Home';
 
-export type GameId = 'bee' | 'typing' | 'pairs' | 'speed';
+export type GameId = 'bee' | 'hive' | 'typing' | 'pairs' | 'speed';
 
 interface Props {
   data: AppData;
@@ -10,48 +10,55 @@ interface Props {
 }
 
 export function Games({ data, update, onPlay }: Props) {
-  const { topic, direction } = data.settings;
+  const { topic, gameDirection } = data.settings;
   const best = data.games.speedBest;
+  const set = (patch: Partial<Settings>) => update((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
 
   const games: { id: GameId; name: string; text: string; detail?: string }[] = [
     {
       id: 'bee',
       name: 'Busy bee',
-      text: 'Tap to keep the bee flying and steer it through the door with the right Maltese word.',
-      detail: DIRECTION_LABEL.x2mt,
+      text: 'Tap to keep the bee flying and steer it through the door with the right answer.',
+    },
+    {
+      id: 'hive',
+      name: 'Protect the hive',
+      text: 'Words creep towards the hive. Tap a word and its answer to zap it before it gets there.',
+      detail: data.games.hiveBest > 0 ? `best ${data.games.hiveBest}` : undefined,
     },
     {
       id: 'typing',
       name: 'Infinite typing',
       text: 'An endless random stream of words. See the Polish or English, spell the Maltese on a ten-letter pad.',
+      detail: 'Always Polish / English → Maltese',
     },
     {
       id: 'pairs',
       name: 'Match pairs',
       text: 'Six Maltese words and six translations. Tap the two that belong together. No timer.',
+      detail: 'Direction does not apply',
     },
     {
       id: 'speed',
       name: 'Speed round',
       text: '60 seconds of questions with four answers to choose from.',
-      detail: `${DIRECTION_LABEL[direction]}${best > 0 ? ` · best ${best}` : ''}`,
+      detail: best > 0 ? `best ${best}` : undefined,
     },
   ];
 
   return (
     <div className="stack">
-      <section>
-        <h2 className="eyebrow">
-          <label htmlFor="game-topic">Topic</label>
-        </h2>
-        <select
-          id="game-topic"
-          className="input"
-          value={topic}
-          onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, topic: e.target.value } }))}
-        >
-          <TopicOptions include={data.settings} />
-        </select>
+      <section className="setup" aria-label="Game setup">
+        <DirectionPicker id="game-dir-label" value={gameDirection} onChange={(d) => set({ gameDirection: d })} />
+
+        <div>
+          <h2 className="eyebrow">
+            <label htmlFor="game-topic">Topic</label>
+          </h2>
+          <select id="game-topic" className="input" value={topic} onChange={(e) => set({ topic: e.target.value })}>
+            <TopicOptions include={data.settings} />
+          </select>
+        </div>
       </section>
 
       <section className="game-list" aria-label="Games">

@@ -12,9 +12,9 @@ const AFTER_WRONG_MS = 900;
 
 type Phase = 'ready' | 'playing' | 'over';
 
-/** 60 seconds of four-choice questions, in the direction chosen on the Study tab. */
+/** 60 seconds of four-choice questions, in the direction chosen on the Games tab. */
 export function SpeedRound({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
-  const [{ topic, show, direction: dir }] = useState(data.settings);
+  const [{ topic, show, gameDirection: dir }] = useState(data.settings);
   const [words] = useState(() => wordsInTopic(topic, data.settings));
   const [stream] = useState(() => new WordStream(words));
   const [phase, setPhase] = useState<Phase>('ready');

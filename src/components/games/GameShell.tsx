@@ -1,4 +1,8 @@
 import { useEffect, type ReactNode } from 'react';
+import { doorLabel, promptLabel } from '../../lib/bounce';
+import type { Direction } from '../../lib/srs';
+import type { ShowLang } from '../../lib/store';
+import type { Word } from '../../lib/words';
 
 interface Props {
   title: string;
@@ -41,5 +45,64 @@ export function GameShell({ title, status, onExit, children }: Props) {
       </header>
       {children}
     </div>
+  );
+}
+
+/** A word asked in a game, and the wrong answer picked for it (null: none was picked). */
+export interface Mistake {
+  word: Word;
+  chosen: Word | null;
+}
+
+/** A side of a word as one line of text, marked as Maltese when it is. */
+function Side({ lines, maltese }: { lines: string[]; maltese: boolean }) {
+  return maltese ? <span lang="mt">{lines.join(' · ')}</span> : <>{lines.join(' · ')}</>;
+}
+
+/**
+ * The mistakes of a round, for the summary: what was asked, the right answer, and the answer
+ * chosen instead, or `missedText` when there was none. Follows the direction the game was played in.
+ */
+export function MistakesList({ mistakes, dir, show, missedText }: { mistakes: Mistake[]; dir: Direction; show: ShowLang; missedText: string }) {
+  if (mistakes.length === 0) return null;
+  const askedMaltese = dir === 'mt2x';
+  return (
+    <div className="bee-missed">
+      <h2 className="eyebrow">Your mistakes</h2>
+      <ul className="wordlist">
+        {mistakes.map(({ word, chosen }, i) => (
+          <li key={i}>
+            <div className="wordlist-text">
+              <span className="mistake-asked">
+                <Side lines={promptLabel(word, dir, show)} maltese={askedMaltese} />
+              </span>
+              <span className="mistake mistake-right">
+                <b>✓</b> <Side lines={doorLabel(word, dir, show)} maltese={!askedMaltese} />
+              </span>
+              <span className="mistake mistake-wrong">
+                <b>✗</b>{' '}
+                {chosen ? (
+                  <>
+                    you chose <Side lines={doorLabel(chosen, dir, show)} maltese={!askedMaltese} />
+                  </>
+                ) : (
+                  missedText
+                )}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The sound switch's icon: a speaker, with waves when on and a cross when off. */
+export function SpeakerIcon({ on }: { on: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9h4l5-4v14l-5-4H4z" />
+      {on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13" /> : <path d="M17 9.5l5 5M22 9.5l-5 5" />}
+    </svg>
   );
 }

@@ -31,7 +31,8 @@ import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face } from '../Cards';
-import { GameShell, Tally } from './GameShell';
+import { drawBee, readColors } from './beeArt';
+import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
 
 const REVEAL_MS = 1400;
 const MIN_POOL = 8;
@@ -92,34 +93,6 @@ interface Particle {
   life: number;
   color: string;
   r: number;
-}
-
-interface Colors {
-  bg: string;
-  wall: string;
-  line: string;
-  ink: string;
-  muted: string;
-  tag: string;
-  good: string;
-  bad: string;
-  honey: string;
-}
-
-function readColors(): Colors {
-  const css = getComputedStyle(document.documentElement);
-  const v = (name: string) => css.getPropertyValue(name).trim();
-  return {
-    bg: v('--surface'),
-    wall: v('--surface-2'),
-    line: v('--line'),
-    ink: v('--ink'),
-    muted: v('--muted'),
-    tag: v('--bg'),
-    good: v('--known'),
-    bad: v('--no'),
-    honey: v('--accent'),
-  };
 }
 
 interface FieldProps {
@@ -322,9 +295,10 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
         cb.current.onCorrect();
         feedback('right');
         burst('right', b.x, b.y, now, back);
-        // The word just answered floats up, kept clear of the prompt strip.
+        // What was on the door floats up, kept clear of the prompt strip.
         const y = Math.max(b.y, headroom() + 70);
-        sparks.push({ text: `✓ ${q.answer.mt}`, x: b.x, y, born: now, life: FLOAT_MS, good: true, maltese: true });
+        const text = `✓ ${doorLabel(q.answer, dir, show)[0]}`;
+        sparks.push({ text, x: b.x, y, born: now, life: FLOAT_MS, good: true, maltese: dir === 'x2mt' });
         nextQuestion();
         goThrough(door!, now);
       } else if (missed) {
@@ -491,61 +465,6 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
       ctx.restore();
     };
 
-    const drawBee = (b: Bee, now: number) => {
-      const r = BEE_RADIUS;
-      ctx.save();
-      ctx.translate(b.x, b.y);
-      ctx.scale(b.dir, 1);
-      ctx.rotate(Math.max(-0.5, Math.min(0.6, b.vy / 900)));
-
-      // Wings, beating.
-      const beat = Math.sin(now / 38) * 0.5;
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.strokeStyle = colors.muted;
-      ctx.lineWidth = 1;
-      for (const tilt of [-0.9 + beat, -0.35 + beat]) {
-        ctx.save();
-        ctx.translate(-2, -r * 0.55);
-        ctx.rotate(tilt);
-        ctx.beginPath();
-        ctx.ellipse(0, -r * 0.6, r * 0.42, r * 0.8, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // Striped body.
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r * 1.15, r * 0.85, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#f2b705';
-      ctx.fill();
-      ctx.save();
-      ctx.clip();
-      ctx.fillStyle = '#2a2420';
-      ctx.fillRect(-r * 0.55, -r, r * 0.3, r * 2);
-      ctx.fillRect(r * 0.05, -r, r * 0.3, r * 2);
-      ctx.restore();
-      ctx.strokeStyle = '#2a2420';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Head, eye, sting.
-      ctx.beginPath();
-      ctx.arc(r * 1.0, -r * 0.1, r * 0.48, 0, Math.PI * 2);
-      ctx.fillStyle = '#2a2420';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(r * 1.15, -r * 0.2, r * 0.14, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-r * 1.1, 0);
-      ctx.lineTo(-r * 1.55, r * 0.05);
-      ctx.strokeStyle = '#2a2420';
-      ctx.stroke();
-      ctx.restore();
-    };
-
     const draw = (now: number) => {
       if (!bee) return;
       ctx.save();
@@ -599,7 +518,7 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
         ctx.fill();
       });
       ctx.globalAlpha = 1;
-      drawBee(bee, now);
+      drawBee(ctx, bee.x, bee.y, BEE_RADIUS, bee.dir, Math.max(-0.5, Math.min(0.6, bee.vy / 900)), now, colors.muted);
 
       sparks = sparks.filter((s) => now - s.born < s.life);
       for (const s of sparks) {
@@ -692,6 +611,7 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
       (window as unknown as Record<string, unknown>).__bee = {
         get state() {
           return {
+            dir,
             bee,
             arena,
             running,
@@ -786,25 +706,13 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
   );
 }
 
-function SpeakerIcon({ on }: { on: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 9h4l5-4v14l-5-4H4z" />
-      {on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13" /> : <path d="M17 9.5l5 5M22 9.5l-5 5" />}
-    </svg>
-  );
-}
-
 /**
  * Tap, or hold on, to keep the bee in the air. The wall ahead has a door per answer: the right
  * one leads on into the next room, a wrong one or the wall itself sends the bee back. Pollen
  * hanging in the air on the way across is a bonus to pick up.
  */
 export function BusyBee({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
-  const [{ topic, show }] = useState(data.settings);
-  // Always from Polish / English to Maltese, whatever direction the Study tab uses:
-  // the doors carry the Maltese words, which is the harder way round.
-  const dir: Direction = 'x2mt';
+  const [{ topic, show, gameDirection: dir }] = useState(data.settings);
   const [pool] = useState(() => {
     const inTopic = beeWords(wordsInTopic(topic, data.settings), dir, show);
     // A topic can be left with too few short words; then play with the whole deck.
@@ -817,7 +725,7 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
   /** Grains of pollen picked up this round. Not saved; it counts for nothing else. */
   const [pollen, setPollen] = useState(0);
   /** Every mistake this round, in order: what was asked and which wrong answer was picked. */
-  const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word | null }[]>([]);
+  const [mistakes, setMistakes] = useState<Mistake[]>([]);
   /** Set after a bump: one more on the same question counts as a miss. */
   const [careful, setCareful] = useState(false);
   const sound = data.settings.sound;
@@ -826,8 +734,6 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
     if (!sound) wakeSound();
     update((d) => ({ ...d, settings: { ...d.settings, sound: !d.settings.sound } }));
   };
-  /** A word's translations, in the languages chosen in Settings. */
-  const translation = (w: Word) => doorLabel(w, 'mt2x', show).join(' · ');
 
   const playAgain = () => {
     setRound((n) => n + 1);
@@ -877,33 +783,7 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
             )}
           </ul>
 
-          {mistakes.length > 0 && (
-            <div className="bee-missed">
-              <h2 className="eyebrow">Your mistakes</h2>
-              <ul className="wordlist">
-                {mistakes.map(({ word, chosen }, i) => (
-                  <li key={i}>
-                    <div className="wordlist-text">
-                      <span className="mistake-asked">{translation(word)}</span>
-                      <span className="mistake mistake-right">
-                        <b>✓</b> <span lang="mt">{word.mt}</span>
-                      </span>
-                      <span className="mistake mistake-wrong">
-                        <b>✗</b>{' '}
-                        {chosen ? (
-                          <>
-                            you chose <span lang="mt">{chosen.mt}</span>
-                          </>
-                        ) : (
-                          'hit the wall twice'
-                        )}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <MistakesList mistakes={mistakes} dir={dir} show={show} missedText="hit the wall twice" />
 
           <div className="done-actions">
             <button className="btn btn-secondary btn-wide" onClick={playAgain}>

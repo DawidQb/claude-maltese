@@ -38,7 +38,10 @@ export function mergeData(base: AppData, other: AppData): AppData {
     cards,
     streak: mergeStreak(base.streak, other.streak),
     introduced: mergeIntroduced(base.introduced, other.introduced),
-    games: { speedBest: Math.max(base.games.speedBest, other.games.speedBest) },
+    games: {
+      speedBest: Math.max(base.games.speedBest, other.games.speedBest),
+      hiveBest: Math.max(base.games.hiveBest, other.games.hiveBest),
+    },
   };
 }
 
