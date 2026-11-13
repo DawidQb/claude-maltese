@@ -31,7 +31,7 @@ describe('mergeStreak and mergeIntroduced', () => {
 
 describe('mergeData', () => {
   const phone = recordAnswer(emptyData(), 'mt2x', 'ħobż', 'knew', '2026-03-10');
-  const laptop = recordAnswer({ ...emptyData(), games: { speedBest: 12 } }, 'x2mt', 'ilma', 'no', '2026-03-10');
+  const laptop = recordAnswer({ ...emptyData(), games: { speedBest: 12, hiveBest: 0 } }, 'x2mt', 'ilma', 'no', '2026-03-10');
 
   it('keeps cards from both sides, the best game record and its own settings', () => {
     const laptopSettings = { ...laptop, settings: { ...laptop.settings, typing: true } };
@@ -39,6 +39,13 @@ describe('mergeData', () => {
     expect(Object.keys(merged.cards).sort()).toEqual(['mt2x:ħobż', 'x2mt:ilma']);
     expect(merged.games.speedBest).toBe(12);
     expect(merged.settings.typing).toBe(true);
+  });
+
+  it('keeps the larger Protect the hive record from either side', () => {
+    const a = { ...phone, games: { speedBest: 3, hiveBest: 40 } };
+    const b = { ...laptop, games: { speedBest: 9, hiveBest: 25 } };
+    expect(mergeData(a, b).games).toEqual({ speedBest: 9, hiveBest: 40 });
+    expect(mergeData(b, a).games).toEqual({ speedBest: 9, hiveBest: 40 });
   });
 
   it('gives the same progress in either order and does nothing when repeated', () => {

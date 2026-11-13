@@ -24,6 +24,7 @@ export function Games({ data, update, onPlay }: Props) {
       id: 'hive',
       name: 'Protect the hive',
       text: 'Words creep towards the hive. Tap a word and its answer to zap it before it gets there.',
+      detail: data.games.hiveBest > 0 ? `best ${data.games.hiveBest}` : undefined,
     },
     {
       id: 'typing',

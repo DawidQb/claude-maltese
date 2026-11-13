@@ -768,6 +768,10 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
   const [tally, setTally] = useState({ ok: 0, bad: 0 });
   const [status, setStatus] = useState({ honey: HONEY, wave: 1 });
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
+  // The record to beat, fixed when the run starts.
+  const [bestBefore, setBestBefore] = useState(data.games.hiveBest);
+  /** Words shot down this run, for saving the best when it ends. */
+  const shot = useRef(0);
   const sound = data.settings.sound;
 
   const toggleSound = () => {
@@ -779,13 +783,19 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
   const start = () => {
     if (sound) wakeSound();
     setRound((n) => n + 1);
+    shot.current = 0;
+    setBestBefore(data.games.hiveBest);
     setTally({ ok: 0, bad: 0 });
     setStatus({ honey: HONEY, wave: 1 });
     setMistakes([]);
     setPhase('playing');
   };
 
-  const finish = () => setPhase('over');
+  const finish = () => {
+    setPhase('over');
+    const final = shot.current;
+    update((d) => (final > d.games.hiveBest ? { ...d, games: { ...d.games, hiveBest: final } } : d));
+  };
 
   return (
     <GameShell
@@ -808,6 +818,7 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
           <p className="done-title">Protect the hive</p>
           <p className="done-text">Tap a word and its answer to zap it before it reaches the hive.</p>
           <p className="muted">{DIRECTION_LABEL[dir]}</p>
+          {data.games.hiveBest > 0 && <p className="muted">Your best: {data.games.hiveBest}</p>}
           <div className="done-actions">
             <button className="btn btn-primary btn-wide" onClick={start} autoFocus>
               Start
@@ -823,7 +834,10 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
             pool={pool}
             dir={dir}
             show={show}
-            onHit={() => setTally((t) => ({ ...t, ok: t.ok + 1 }))}
+            onHit={() => {
+              shot.current += 1;
+              setTally((t) => ({ ...t, ok: t.ok + 1 }));
+            }}
             onMiss={(word, chosen) => {
               setTally((t) => ({ ...t, bad: t.bad + 1 }));
               setMistakes((list) => [...list, { word, chosen }]);
@@ -854,9 +868,16 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
 
       {phase === 'over' && (
         <div className="card card-done bee-summary" role="status">
-          <p className="done-title">{tally.ok}</p>
+          <p className="done-title">{shot.current}</p>
           <p className="done-text">
-            {tally.ok === 1 ? 'word' : 'words'} shot down · wave {status.wave} reached
+            {shot.current === 1 ? 'word' : 'words'} shot down · wave {status.wave} reached
+          </p>
+          <p className="muted">
+            {shot.current > bestBefore && bestBefore > 0
+              ? `New best! Before: ${bestBefore}`
+              : bestBefore > 0
+                ? `Your best: ${Math.max(shot.current, bestBefore)}`
+                : ''}
           </p>
           <ul className="legend legend-center">
             <li>
