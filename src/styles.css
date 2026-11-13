@@ -1394,6 +1394,216 @@ select {
   }
 }
 
+/* Queen's orders */
+
+.court-field {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* The queen's strip at the top of the field: the verb, then the order. The workers walk up to its bottom edge. */
+.court-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* The left side is the queen's: the canvas draws her there. */
+  padding: 12px 14px 18px 64px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.court-verb {
+  min-height: 1.45em;
+  font-size: 0.9rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.court-verb-mt {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.court-wanted {
+  font-weight: 700;
+  color: var(--no);
+}
+
+.court-wanted .court-verb-mt {
+  color: var(--ink);
+}
+
+.court-order {
+  font-size: clamp(1.25rem, 6vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.court-order .tr-lines {
+  align-items: center;
+  gap: 2px;
+}
+
+/* The canvas lies under the strip and the workers: the comb, the queen, the bees and the sparks. */
+.court-field canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A worker carrying a form; the game loop sets its transform. */
+.court-worker {
+  max-width: calc(50% - 16px);
+  min-width: 96px;
+}
+
+.court-worker:disabled {
+  cursor: default;
+}
+
+.court-worker.is-right {
+  border-color: var(--known);
+  background: color-mix(in srgb, var(--known) 22%, var(--surface));
+}
+
+.court-worker.is-wrong {
+  border-color: var(--no);
+  background: color-mix(in srgb, var(--no) 14%, var(--surface));
+  /* A flash, not the shared shake: the transform is the worker's position. */
+  animation: court-flash 0.45s ease;
+}
+
+@keyframes court-flash {
+  40% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--no) 40%, transparent);
+  }
+}
+
+.court-worker.is-right {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--known) 35%, transparent), var(--shadow);
+}
+
+.court-worker.is-gone {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+
+.court-field .bee-overlay {
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
+}
+
+.court-banner {
+  inset: 42% 28px auto;
+  transform: translateY(-50%);
+}
+
+.court-banner-note {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+/* The table of the verb's forms after an audience: over the whole field, scrolling if it must. */
+.court-table-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.court-table-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 14px 18px;
+  text-align: center;
+}
+
+.court-table-title {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.court-table {
+  width: 100%;
+  margin: 8px 0 12px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.court-row td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.court-cell-mark {
+  width: 1.4em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.court-cell-mt {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.court-cell-x {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.court-row--right .court-cell-mark {
+  color: var(--known);
+}
+
+.court-row--right td {
+  background: color-mix(in srgb, var(--known) 12%, transparent);
+}
+
+.court-row--wrong .court-cell-mark {
+  color: var(--no);
+}
+
+.court-row--wrong td {
+  background: color-mix(in srgb, var(--no) 12%, transparent);
+}
+
+@media (max-height: 639px) {
+  .court-field {
+    min-height: 260px;
+  }
+
+  .court-strip {
+    padding: 8px 12px 14px 64px;
+  }
+
+  .court-order {
+    font-size: clamp(1.1rem, 5vw, 1.3rem);
+  }
+}
+
 /* ---------- Honeycomb look for the games ---------- */
 
 /*

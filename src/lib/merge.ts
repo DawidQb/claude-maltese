@@ -41,6 +41,7 @@ export function mergeData(base: AppData, other: AppData): AppData {
     games: {
       speedBest: Math.max(base.games.speedBest, other.games.speedBest),
       hiveBest: Math.max(base.games.hiveBest, other.games.hiveBest),
+      queenBest: Math.max(base.games.queenBest, other.games.queenBest),
     },
   };
 }

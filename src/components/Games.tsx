@@ -1,7 +1,7 @@
 import type { AppData, Settings, Update } from '../lib/store';
 import { DirectionPicker, TopicOptions } from './Home';
 
-export type GameId = 'bee' | 'hive' | 'typing' | 'pairs' | 'speed';
+export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'pairs' | 'speed';
 
 interface Props {
   data: AppData;
@@ -25,6 +25,12 @@ export function Games({ data, update, onPlay }: Props) {
       name: 'Protect the hive',
       text: 'Words creep towards the hive. Tap a word and its answer to zap it before it gets there.',
       detail: data.games.hiveBest > 0 ? `best ${data.games.hiveBest}` : undefined,
+    },
+    {
+      id: 'queen',
+      name: 'Queen’s orders',
+      text: 'The queen asks for a form of a verb. Tap the worker carrying it before they reach her.',
+      detail: data.games.queenBest > 0 ? `best ${data.games.queenBest}` : 'All verbs with forms · topic does not apply',
     },
     {
       id: 'typing',
