@@ -12,6 +12,14 @@ const TIMER_CELLS = 12;
 const CELL_MS = ROUND_MS / TIMER_CELLS;
 /** A swipe released further than this counts as that side's button. */
 const SWIPE_PX = 72;
+/**
+ * A gesture picks its direction once the finger has moved this far: mostly sideways, it is a
+ * swipe and the card follows; mostly up or down, it is a scroll of the page and the card ignores
+ * the rest of it, so scrolling never moves the card or makes a call.
+ */
+const LOCK_PX = 10;
+/** Sideways means at least this many times more across than up or down. */
+const SIDEWAYS = 1.2;
 /** The card tilts this much at most while it follows the finger. */
 const MAX_TILT_DEG = 12;
 /** The timer cells a wrong call empties flash red this long. */
@@ -60,7 +68,7 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
   const history = useRef<boolean[]>([]);
   const nextTimer = useRef<number | undefined>(undefined);
   /** A swipe in progress: where it started, and how far it has gone. */
-  const drag = useRef<{ id: number; x: number } | null>(null);
+  const drag = useRef<{ id: number; x: number; y: number; swiping: boolean } | null>(null);
   const [dx, setDx] = useState(0);
   /** The clock before and after the last penalty, so the cells it emptied can flash. */
   const [lost, setLost] = useState<{ from: number; to: number } | null>(null);
@@ -165,14 +173,25 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (phase !== 'playing' || call !== null || drag.current) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { id: e.pointerId, x: e.clientX };
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, swiping: false };
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
-    setDx(e.clientX - d.x);
+    const mx = e.clientX - d.x;
+    const my = e.clientY - d.y;
+    if (!d.swiping) {
+      if (Math.max(Math.abs(mx), Math.abs(my)) < LOCK_PX) return;
+      if (Math.abs(mx) < Math.abs(my) * SIDEWAYS) {
+        // Up or down: a scroll. Let the page have it.
+        drag.current = null;
+        return;
+      }
+      d.swiping = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    setDx(mx);
   };
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -181,7 +200,7 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
     drag.current = null;
     const moved = e.clientX - d.x;
     // A tap does nothing; a swipe far enough counts as that side's button, and the card flies on from where it was let go.
-    if (Math.abs(moved) >= SWIPE_PX) {
+    if (d.swiping && Math.abs(moved) >= SWIPE_PX) {
       setDx(moved);
       decide(moved > 0);
     } else setDx(0);
