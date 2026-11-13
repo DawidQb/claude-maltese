@@ -1,4 +1,4 @@
-import raw from '../data/words.json';
+import shipped from '../data/words.json';
 
 export interface Word {
   /** Stable key for saved progress: the Maltese word itself. */
@@ -16,34 +16,50 @@ export interface Word {
   formOf?: string;
 }
 
-type Triple = [string, string, string];
+export type Triple = [string, string, string];
 /**
  * [Maltese, Polish, English], optionally followed by a fourth item:
  * the plural form as its own triple, or the verb a conjugated form belongs to.
  */
-type Row = Triple | [...Triple, Triple] | [...Triple, string];
+export type Row = Triple | [...Triple, Triple] | [...Triple, string];
 
-interface RawTopic {
+/** The deck as stored in src/data/words.json and in the local copy of the database's deck. */
+export interface RawTopic {
   topic: string;
   note?: string;
   words: Row[];
 }
 
-/** Every card in deck order. A plural form is its own card, right after its singular. */
-export const WORDS: Word[] = (raw as unknown as RawTopic[]).flatMap((t) =>
-  t.words.flatMap(([mt, pl, en, extra]) => {
-    const base: Word = { id: mt, mt, pl, en, topic: t.topic, note: t.note };
-    if (!extra) return [base];
-    if (typeof extra === 'string') return [{ ...base, formOf: extra }];
-    const [pmt, ppl, pen] = extra;
-    return [
-      { ...base, plural: pmt },
-      { id: pmt, mt: pmt, pl: ppl, en: pen, topic: t.topic, note: t.note, pluralOf: mt },
-    ];
-  }),
-);
+/** The deck the app was built with, used until the database's deck has been downloaded. */
+export const SHIPPED_DECK = shipped as unknown as RawTopic[];
 
-export const TOPICS: string[] = (raw as unknown as RawTopic[]).map((t) => t.topic);
+/** Every card in deck order. A plural form is its own card, right after its singular. */
+export function buildWords(deck: RawTopic[]): Word[] {
+  return deck.flatMap((t) =>
+    t.words.flatMap(([mt, pl, en, extra]) => {
+      const base: Word = { id: mt, mt, pl, en, topic: t.topic, note: t.note };
+      if (!extra) return [base];
+      if (typeof extra === 'string') return [{ ...base, formOf: extra }];
+      const [pmt, ppl, pen] = extra;
+      return [
+        { ...base, plural: pmt },
+        { id: pmt, mt: pmt, pl: ppl, en: pen, topic: t.topic, note: t.note, pluralOf: mt },
+      ];
+    }),
+  );
+}
+
+// Live bindings: every importer sees the deck set by the latest setDeck().
+export let DECK: RawTopic[] = SHIPPED_DECK;
+export let WORDS: Word[] = buildWords(SHIPPED_DECK);
+export let TOPICS: string[] = SHIPPED_DECK.map((t) => t.topic);
+
+/** Switches the whole app to another deck. Call before rendering, or re-render after. */
+export function setDeck(deck: RawTopic[]): void {
+  DECK = deck;
+  WORDS = buildWords(deck);
+  TOPICS = deck.map((t) => t.topic);
+}
 
 export const ALL_TOPICS = 'all';
 

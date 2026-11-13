@@ -5,8 +5,6 @@ import { fold } from '../lib/text';
 import { TOPICS, WORDS, topicsWith } from '../lib/words';
 import { DIRECTION_LABEL } from './Home';
 
-const INDEX = WORDS.map((w) => ({ word: w, text: fold(`${w.mt} ${w.pl} ${w.en}`) }));
-
 function boxLabel(box: number): string {
   if (box === 0) return 'New';
   return box >= 3 ? `Known · ${box}` : `Learning · ${box}`;
@@ -17,10 +15,12 @@ export function WordList({ data }: { data: AppData }) {
   const [topic, setTopic] = useState('all');
   const { direction: dir, plurals, verbForms } = data.settings;
   const topics = topicsWith(data.settings);
+  const words = WORDS;
+  const index = useMemo(() => words.map((w) => ({ word: w, text: fold(`${w.mt} ${w.pl} ${w.en}`) })), [words]);
 
   const groups = useMemo(() => {
     const q = fold(query.trim());
-    const hits = INDEX.filter(
+    const hits = index.filter(
       (e) =>
         (plurals || !e.word.pluralOf) &&
         (verbForms || !e.word.formOf) &&
@@ -30,7 +30,7 @@ export function WordList({ data }: { data: AppData }) {
     return TOPICS.map((t) => ({ topic: t, words: hits.filter((e) => e.word.topic === t).map((e) => e.word) })).filter(
       (g) => g.words.length > 0,
     );
-  }, [query, topic, plurals, verbForms]);
+  }, [index, query, topic, plurals, verbForms]);
 
   const count = groups.reduce((n, g) => n + g.words.length, 0);
 

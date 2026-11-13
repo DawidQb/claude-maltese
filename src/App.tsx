@@ -8,8 +8,10 @@ import { Home } from './components/Home';
 import { Settings } from './components/Settings';
 import { Study } from './components/Study';
 import { WordList } from './components/WordList';
+import { useAccount } from './lib/account';
 import { toISODate } from './lib/srs';
 import { useStore } from './lib/store';
+import { useDeck } from './lib/useDeck';
 
 type Tab = 'home' | 'games' | 'words' | 'settings';
 
@@ -22,10 +24,13 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function App() {
   const [data, update] = useStore();
+  const account = useAccount(data, update);
   const [tab, setTab] = useState<Tab>('home');
   // A study session or a game takes over the whole screen.
   const [activity, setActivity] = useState<'study' | GameId | null>(null);
   const close = useCallback(() => setActivity(null), []);
+  // Re-renders when a newer deck from the database is switched to.
+  const deckVersion = useDeck(activity === null, update);
   const today = toISODate(new Date());
 
   if (activity) {
@@ -49,11 +54,11 @@ export function App() {
         <span className="brand-sub">Maltese flashcards</span>
       </header>
 
-      <main className="content">
+      <main className="content" key={deckVersion}>
         {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setActivity('study')} />}
         {tab === 'games' && <Games data={data} update={update} onPlay={setActivity} />}
         {tab === 'words' && <WordList data={data} />}
-        {tab === 'settings' && <Settings data={data} update={update} />}
+        {tab === 'settings' && <Settings data={data} update={update} account={account} />}
       </main>
 
       <nav className="tabs" aria-label="Sections">
