@@ -1,7 +1,7 @@
 import type { AppData, Settings, Update } from '../lib/store';
 import { DirectionPicker, TopicOptions } from './Home';
 
-export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'pairs' | 'speed';
+export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'spell' | 'pairs' | 'speed';
 
 interface Props {
   data: AppData;
@@ -36,6 +36,12 @@ export function Games({ data, update, onPlay }: Props) {
       id: 'typing',
       name: 'Infinite typing',
       text: 'An endless random stream of words. See the Polish or English, spell the Maltese on a ten-letter pad.',
+      detail: 'Always Polish / English → Maltese',
+    },
+    {
+      id: 'spell',
+      name: 'Honeycomb spell',
+      text: 'The Maltese word is hidden in a comb of letters. Trace it from cell to cell.',
       detail: 'Always Polish / English → Maltese',
     },
     {
