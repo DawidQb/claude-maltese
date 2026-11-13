@@ -17,7 +17,7 @@ import {
 import type { AppData, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic } from '../../lib/words';
 import { Face } from '../Cards';
-import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
+import { GameShell, MistakesList, SpeakerIcon, Tally, useStillPage, type Mistake } from './GameShell';
 
 /** The largest cell radius, in px; the comb is smaller when the screen is. */
 const MAX_SIZE = 46;
@@ -67,6 +67,8 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
   /** Whether this word has had a failed trace: spelled after one, it still comes back later. */
   const failed = useRef(false);
   const [phase, setPhase] = useState<Phase>('playing');
+  // While words are being traced a finger on the screen is for tracing only; the summary scrolls.
+  useStillPage(phase !== 'over');
   const phaseRef = useRef<Phase>('playing');
   const [tally, setTally] = useState({ ok: 0, bad: 0 });
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
@@ -423,7 +425,15 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
           >
             <SpeakerIcon on={sound} />
           </button>
-          <button className="btn btn-secondary btn-small" onClick={() => enter('over')}>
+          <button
+            className="btn btn-secondary btn-small"
+            onClick={() => {
+              // Cancel the next comb, or it would bring the game back over the summary.
+              window.clearTimeout(timer.current);
+              press.current = null;
+              enter('over');
+            }}
+          >
             Finish
           </button>
         </div>

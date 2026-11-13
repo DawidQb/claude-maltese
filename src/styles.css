@@ -1831,7 +1831,8 @@ select {
 .spell-comb {
   position: relative;
   flex: 1;
-  min-height: 230px;
+  /* The page does not scroll while tracing, so the comb takes what room is left and sizes its cells to it. */
+  min-height: 160px;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -1931,6 +1932,26 @@ select {
 
 .spell-line.is-right polyline {
   stroke: var(--known);
+}
+
+/* A short screen: tighter gaps, so the comb keeps cells big enough for a finger. */
+@media (max-height: 599px) {
+  .study:has(.spell-comb) {
+    gap: 8px;
+  }
+
+  .spell-meaning {
+    padding: 6px 14px;
+  }
+
+  .spell-meaning .translations dd {
+    font-size: 1.05rem;
+  }
+
+  .spell-display {
+    min-height: 38px;
+    font-size: 1.3rem;
+  }
 }
 
 .spell-tries {
@@ -2213,8 +2234,7 @@ select {
   }
 }
 
-/* True or sting: the visitor's card, swiped or decided with the two buttons under it. */
-/* While a round of True or sting runs, the page stands still under the finger. */
+/* While a game played by swiping or tracing runs, the page stands still under the finger (useStillPage). */
 html.no-scroll,
 html.no-scroll body {
   overflow: hidden;
@@ -2222,6 +2242,7 @@ html.no-scroll body {
   touch-action: none;
 }
 
+/* True or sting: the visitor's card, swiped or decided with the two buttons under it. */
 .sting-card {
   gap: 6px;
   min-height: 120px;
