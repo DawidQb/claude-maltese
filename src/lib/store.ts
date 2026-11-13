@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { applyGrade, bumpStreak, cardKey, type CardState, type Direction, type Grade, type Streak } from './srs';
+import { PACES, type Pace } from './meadow';
 import { ALL_TOPICS, TOPICS } from './words';
 
 export type ShowLang = 'both' | 'pl' | 'en';
@@ -26,6 +27,8 @@ export interface Settings {
   sound: boolean;
   /** Bees flying about in the background of the whole app. */
   bees: boolean;
+  /** How often a word comes in Watch the flowers. */
+  meadowPace: Pace;
 }
 
 export interface AppData {
@@ -47,7 +50,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false, meadowPace: 'normal' },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0, hiveBest: 0, queenBest: 0, stingBest: 0 },
@@ -84,6 +87,7 @@ export function sanitize(input: unknown): AppData | null {
     verbForms: s.verbForms !== false,
     sound: s.sound !== false,
     bees: s.bees === true,
+    meadowPace: PACES.includes(s.meadowPace as Pace) ? (s.meadowPace as Pace) : 'normal',
   };
 
   const st = (src.streak ?? {}) as Partial<Streak>;
