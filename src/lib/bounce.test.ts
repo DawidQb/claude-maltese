@@ -3,6 +3,7 @@ import {
   BEE_RADIUS,
   beeWords,
   doorLabel,
+  enterRoom,
   flap,
   newBee,
   nextSpeed,
@@ -211,6 +212,54 @@ describe('reaching the wall', () => {
     expect(flyTo(bee, mid(bee, 0))).toBe('correct');
     expect(bee.x).toBe(WALL + BEE_RADIUS);
   });
+});
+
+describe('entering the next room', () => {
+  const mid = (bee: Bee, option: number) => (bee.doors[option].top + bee.doors[option].bottom) / 2;
+
+  /** Flies straight on at a fixed height and reports how long it took to reach a wall. */
+  function crossing(bee: Bee, y: number) {
+    let t = 0;
+    for (let i = 0; i < 1200; i++) {
+      bee.y = y;
+      bee.vy = 0;
+      t += DT;
+      const hit = step(bee, DT, arena);
+      if (hit) return { hit, t };
+    }
+    throw new Error('no wall reached');
+  }
+
+  for (const dir of [1, -1] as const) {
+    it(`goes on through the wall in the same direction (${dir === 1 ? 'right' : 'left'})`, () => {
+      const bee = launched(0);
+      if (dir === -1) {
+        flyTo(bee, mid(bee, 1));
+        turn(bee, arena, SPEED.start, placeDoors(arena, 0, () => 0.5));
+      }
+      expect(flyTo(bee, mid(bee, 0))).toBe('correct');
+      const { x, y, vy } = bee;
+      const next = placeDoors(arena, 1, () => 0.3);
+      enterRoom(bee, arena, SPEED.start, next);
+
+      expect(bee.dir).toBe(dir);
+      expect(bee.x).toBe(x - dir * (arena.width - WALL));
+      expect(bee.y).toBe(y);
+      expect(bee.vy).toBe(vy);
+      expect(bee.vx).toBe(dir * SPEED.start * arena.width);
+      expect(bee.doors).toBe(next);
+      // Still in the doorway of the wall behind.
+      expect(dir === 1 ? bee.x < WALL : bee.x > arena.width - WALL).toBe(true);
+
+      // No event while leaving the doorway; the far wall next, after at least a full crossing.
+      const { hit, t } = crossing(bee, mid(bee, 1));
+      expect(hit.event).toBe('correct');
+      expect(bee.x).toBe(dir === 1 ? arena.width - WALL - BEE_RADIUS : WALL + BEE_RADIUS);
+      const full = (arena.width - 2 * (WALL + BEE_RADIUS)) / (SPEED.start * arena.width);
+      expect(t).toBeGreaterThanOrEqual(full);
+      expect(t).toBeLessThan(full * 1.2);
+    });
+  }
 });
 
 describe('nextSpeed', () => {

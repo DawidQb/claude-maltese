@@ -1,6 +1,7 @@
 /**
- * Physics and rules for the "Busy bee" game: a bee bounces between two walls,
- * and the wall it is heading for has two doors, one per answer.
+ * Physics and rules for the "Busy bee" game: a bee flies between two walls, and the wall
+ * it is heading for has a door per answer. The right door leads on into the next room;
+ * a wrong door or the solid wall sends it back.
  * Pure functions on plain data, so the rules can be tested without a screen.
  */
 import type { Direction } from './srs';
@@ -105,6 +106,17 @@ export function flap(bee: Bee): void {
 /** Sends the bee back the other way, with new doors on the wall it now faces. */
 export function turn(bee: Bee, arena: Arena, speed: number, doors: Door[]): void {
   bee.dir = bee.dir === 1 ? -1 : 1;
+  bee.vx = bee.dir * speed * arena.width;
+  bee.doors = doors;
+}
+
+/**
+ * Carries the bee through the door it just flew through into the next room, which shares that
+ * wall: the bee keeps its height and direction, sits in the doorway of the wall behind it, and
+ * flies on to the far wall, which has `doors` for the next question. A full crossing, as before.
+ */
+export function enterRoom(bee: Bee, arena: Arena, speed: number, doors: Door[]): void {
+  bee.x -= bee.dir * (arena.width - WALL);
   bee.vx = bee.dir * speed * arena.width;
   bee.doors = doors;
 }

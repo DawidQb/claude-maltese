@@ -3,6 +3,7 @@ import {
   BEE_RADIUS,
   beeWords,
   doorLabel,
+  enterRoom,
   flap,
   HOLD_DELAY_MS,
   newBee,
@@ -14,6 +15,7 @@ import {
   WALL,
   type Arena,
   type Bee,
+  type Door,
   type WallHit,
 } from '../../lib/bounce';
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
@@ -25,6 +27,22 @@ import { GameShell, Tally } from './GameShell';
 
 const REVEAL_MS = 1400;
 const MIN_POOL = 8;
+/** How long the view takes to slide after the bee into the next room. */
+const ROOM_SLIDE_MS = 320;
+
+/** Repeatable random numbers, so a room looks the same each time the bee passes through it. */
+function seeded(seed: number): () => number {
+  let s = (seed * 2654435761) >>> 0 || 1;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), s | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Eases from 0 to 1 and starts and stops gently, so the bee's motion has no jolt at either end. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
 
 interface Spark {
   text: string;
@@ -103,6 +121,18 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     let speed = SPEED.start;
     /** Right answers in a row. Never shown; it drives difficulty and effects. */
     let run = 0;
+    /** Which room the bee is in: one more for each room to the right, one less to the left. */
+    let room = 0;
+    /** The door the bee came in by, on the wall behind it. Gone once it turns to face that wall. */
+    let entry: Door | null = null;
+    /** The door it came into the previous room by, drawn while that room slides out of view. */
+    let leftEntry: Door | null = null;
+    /** How far the scene is shifted while the view slides after the bee; eases out to 0. */
+    let camera = 0;
+    let slideFrom = 0;
+    let slideStart = 0;
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduceMotion = motion.matches;
     let running = false;
     /** While set, the game is paused to show the right answer; then the next question starts. */
     let pausedUntil = 0;
@@ -114,8 +144,10 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     let frame = 0;
 
     const correctOption = () => q.options.findIndex((w) => w.id === q.answer.id);
+    /** The strip at the top of the field taken by the word being asked. */
+    const headroom = () => (promptRef.current?.offsetHeight ?? 0) + 6;
     /** Doors stay below the word shown at the top of the field. */
-    const doors = () => placeDoors(arena, correctOption(), Math.random, (promptRef.current?.offsetHeight ?? 0) + 6);
+    const doors = () => placeDoors(arena, correctOption(), Math.random, headroom());
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -127,8 +159,11 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       if (!bee) {
         bee = newBee(arena, doors());
       } else {
-        // Keep the bee on screen and rebuild the doors for the new size.
-        bee.x = Math.min(Math.max(bee.x, WALL + BEE_RADIUS), arena.width - WALL - BEE_RADIUS);
+        // Keep the bee on screen and rebuild the doors for the new size. Just through a door,
+        // it may still be inside the wall behind it.
+        const lo = entry && bee.dir === 1 ? -BEE_RADIUS : WALL + BEE_RADIUS;
+        const hi = entry && bee.dir === -1 ? arena.width + BEE_RADIUS : arena.width - WALL - BEE_RADIUS;
+        bee.x = Math.min(Math.max(bee.x, lo), hi);
         bee.y = Math.min(bee.y, arena.height - BEE_RADIUS);
         bee.doors = doors();
         if (running) bee.vx = bee.dir * speed * arena.width;
@@ -140,7 +175,27 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       setQuestion(q);
     };
 
-    const turnAround = () => turn(bee!, arena, speed, doors());
+    /** Back the other way in the same room: the wall it now faces gets fresh doors. */
+    const turnAround = () => {
+      turn(bee!, arena, speed, doors());
+      entry = null;
+    };
+
+    /** On through `door` into the next room, with the view sliding after the bee. */
+    const goThrough = (door: Door, now: number) => {
+      const b = bee!;
+      const shift = b.dir * (arena.width - WALL);
+      enterRoom(b, arena, speed, doors());
+      room += b.dir;
+      leftEntry = entry;
+      entry = door;
+      // Effects stay where they were in the room being left.
+      for (const s of sparks) s.x -= shift;
+      // The view starts where it was, so the bee stays put on screen in this very frame.
+      slideFrom = reduceMotion ? 0 : shift;
+      camera = slideFrom;
+      slideStart = now;
+    };
 
     const onWall = ({ event, door }: WallHit, now: number) => {
       const b = bee!;
@@ -150,7 +205,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
         cb.current.onCorrect();
         sparks.push({ text: '✓', x: b.x, y: b.y, born: now, good: true });
         nextQuestion();
-        turnAround();
+        goThrough(door!, now);
       } else if (event === 'wrong') {
         run = 0;
         cb.current.onWrong(q.answer, q.options[door!.option]);
@@ -191,7 +246,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       ctx.closePath();
     };
 
-    const drawWall = (side: 1 | -1, withDoors: boolean) => {
+    /** A wall and its door openings; only the doors ahead of the bee carry answers. */
+    const drawWall = (side: 1 | -1, doors: Door[], labelled: boolean) => {
       const x = side === 1 ? arena.width - WALL : 0;
       ctx.fillStyle = colors.wall;
       ctx.fillRect(x, 0, WALL, arena.height);
@@ -204,16 +260,15 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
         ctx.lineTo(x + WALL, y + 0.5);
       }
       ctx.stroke();
-      if (!withDoors || !bee) return;
 
-      for (const door of bee.doors) {
+      for (const door of doors) {
         // The opening, with a honey-coloured frame.
         ctx.fillStyle = colors.bg;
         ctx.fillRect(x, door.top, WALL, door.bottom - door.top);
         ctx.fillStyle = colors.honey;
         ctx.fillRect(x, door.top - 4, WALL, 4);
         ctx.fillRect(x, door.bottom, WALL, 4);
-        drawLabel(side, door.top, door.bottom, doorLabel(q.options[door.option], dir, show));
+        if (labelled) drawLabel(side, door.top, door.bottom, doorLabel(q.options[door.option], dir, show));
       }
     };
 
@@ -247,6 +302,60 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
         ctx.fillStyle = i === 0 ? colors.ink : colors.muted;
         ctx.fillText(text, x + w / 2, y + 7 + lineHeight * (i + 0.5), w - 12);
       });
+    };
+
+    /** A few faint honeycomb cells and flowers, the same each time for a room, so the slide shows. */
+    const drawBackdrop = (n: number, dx: number) => {
+      const rng = seeded(n + 1000);
+      const { width: w, height: h } = arena;
+      const top = headroom();
+      ctx.save();
+      ctx.translate(dx, 0);
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 1.5;
+      for (let patch = 0; patch < 2; patch++) {
+        const cx = WALL + 40 + rng() * (w - 2 * WALL - 80);
+        const cy = top + (h - top) * (0.15 + patch * 0.4 + rng() * 0.15);
+        const r = 10 + rng() * 6;
+        const cells = 3 + Math.floor(rng() * 4);
+        for (const [cq, cr] of [[0, 0], [1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]].slice(0, cells)) {
+          const x = cx + r * Math.sqrt(3) * (cq + cr / 2);
+          const y = cy + r * 1.5 * cr;
+          ctx.beginPath();
+          for (let k = 0; k < 6; k++) {
+            const a = Math.PI / 6 + (k * Math.PI) / 3;
+            ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
+          }
+          ctx.closePath();
+          if (rng() < 0.5) {
+            ctx.fillStyle = colors.wall;
+            ctx.fill();
+          }
+          ctx.stroke();
+        }
+      }
+      // Flowers along the floor.
+      const flowers = 2 + Math.floor(rng() * 2);
+      for (let i = 0; i < flowers; i++) {
+        const x = WALL + 24 + ((i + rng() * 0.8) / flowers) * (w - 2 * WALL - 48);
+        const y = h - 26 - rng() * 30;
+        ctx.beginPath();
+        ctx.moveTo(x, h);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.fillStyle = colors.line;
+        for (let k = 0; k < 5; k++) {
+          const a = (k * 2 * Math.PI) / 5;
+          ctx.beginPath();
+          ctx.arc(x + Math.cos(a) * 6, y + Math.sin(a) * 6, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = colors.wall;
+        ctx.fill();
+      }
+      ctx.restore();
     };
 
     const drawBee = (b: Bee, now: number) => {
@@ -311,8 +420,21 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       if (now < shakeUntil) ctx.translate(Math.sin(now / 12) * 3, 0);
       ctx.fillStyle = colors.bg;
       ctx.fillRect(0, 0, arena.width, arena.height);
-      drawWall(1, bee.dir === 1);
-      drawWall(-1, bee.dir === -1);
+      // Everything below is in room coordinates and slides with the view.
+      ctx.translate(camera, 0);
+      // While sliding, the room being left is still in view, one room back.
+      const behind = bee.dir === 1 ? -1 : 1;
+      const back = behind * (arena.width - WALL);
+      if (camera) {
+        drawBackdrop(room - bee.dir, back);
+        ctx.save();
+        ctx.translate(back, 0);
+        drawWall(behind, leftEntry ? [leftEntry] : [], false);
+        ctx.restore();
+      }
+      drawBackdrop(room, 0);
+      drawWall(bee.dir, bee.doors, true);
+      drawWall(behind, entry ? [entry] : [], false);
       drawBee(bee, now);
 
       sparks = sparks.filter((s) => now - s.born < 700);
@@ -335,6 +457,12 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       const dt = Math.min((now - (last || now)) / 1000, 1 / 30);
       last = now;
       if (!bee) return;
+
+      if (slideFrom) {
+        const t = Math.min(1, (now - slideStart) / ROOM_SLIDE_MS);
+        camera = slideFrom * (1 - smooth(t));
+        if (t === 1) slideFrom = 0;
+      }
 
       if (pausedUntil) {
         if (now >= pausedUntil) {
@@ -359,6 +487,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     const scheme = window.matchMedia('(prefers-color-scheme: dark)');
     const onScheme = () => (colors = readColors());
     scheme.addEventListener('change', onScheme);
+    const onMotion = () => (reduceMotion = motion.matches);
+    motion.addEventListener('change', onMotion);
     const observer = new ResizeObserver(resize);
     observer.observe(wrap);
     resize();
@@ -375,6 +505,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
             paused: pausedUntil > 0,
             speed,
             run,
+            room,
+            camera,
             answer: q.answer.id,
             options: q.options.map((w) => w.id),
           };
@@ -386,6 +518,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       cancelAnimationFrame(frame);
       observer.disconnect();
       scheme.removeEventListener('change', onScheme);
+      motion.removeEventListener('change', onMotion);
     };
   }, [pool, stream, dir, show]);
 
