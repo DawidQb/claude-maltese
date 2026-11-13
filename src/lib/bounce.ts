@@ -194,6 +194,45 @@ export function step(bee: Bee, dt: number, arena: Arena, lifting = false): WallH
   return { event: door.correct ? 'correct' : 'wrong', door };
 }
 
+/* ---------- Pollen ---------- */
+
+/**
+ * Now and then a grain or two of pollen hangs in the air on the way across, to pick up by flying
+ * through it. Per crossing: a chance of one grain and a chance of two, none in the first `after`
+ * crossings of a round. Grains sit between `from` and `to` of the way from the wall being left,
+ * clear of the door labels ahead, and between the prompt strip and `floor` px above the floor.
+ * A grain is taken when the bee's centre comes within its radius plus `reach`.
+ * Setting both chances to 0 switches pollen off.
+ */
+export const POLLEN = { one: 0.5, two: 0.15, after: 3, from: 0.22, to: 0.48, floor: 40, reach: 8 };
+
+export interface Grain {
+  x: number;
+  y: number;
+}
+
+/**
+ * The grains for crossing number `crossing` of the round (from 0), flying in direction `dir`.
+ * The doors play no part, so where the pollen is never hints at the answer.
+ */
+export function placePollen(arena: Arena, dir: 1 | -1, headroom: number, crossing: number, rng: Rng = Math.random): Grain[] {
+  if (crossing < POLLEN.after) return [];
+  const roll = rng();
+  const count = roll < POLLEN.two ? 2 : roll < POLLEN.two + POLLEN.one ? 1 : 0;
+  const across = arena.width - 2 * WALL;
+  const low = arena.height - POLLEN.floor;
+  return Array.from({ length: count }, () => {
+    const along = (POLLEN.from + rng() * (POLLEN.to - POLLEN.from)) * across;
+    return { x: dir === 1 ? WALL + along : arena.width - WALL - along, y: headroom + rng() * (low - headroom) };
+  });
+}
+
+/** Splits the grains into those the bee is touching now and those still left. */
+export function collectPollen(bee: Bee, grains: Grain[]): { left: Grain[]; taken: Grain[] } {
+  const near = (g: Grain) => Math.hypot(g.x - bee.x, g.y - bee.y) <= BEE_RADIUS + POLLEN.reach;
+  return { left: grains.filter((g) => !near(g)), taken: grains.filter(near) };
+}
+
 /* ---------- Which words fit on a door ---------- */
 
 const MAX_LABEL = 18;

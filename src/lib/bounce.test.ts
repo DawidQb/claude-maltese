@@ -3,6 +3,7 @@ import {
   BEE_RADIUS,
   beeWords,
   bumpCounts,
+  collectPollen,
   DIFFICULTY,
   difficulty,
   doorLabel,
@@ -13,6 +14,8 @@ import {
   newBee,
   nextSpeed,
   placeDoors,
+  placePollen,
+  POLLEN,
   SPEED,
   step,
   turn,
@@ -355,6 +358,71 @@ describe('nextSpeed', () => {
     expect(nextSpeed(nextSpeed(fifteen, 'correct'), 'correct')).toBe(SPEED.max);
     for (let i = 0; i < 200; i++) s = nextSpeed(s, 'wrong');
     expect(s).toBe(SPEED.min);
+  });
+});
+
+describe('pollen', () => {
+  /** Repeatable random numbers. */
+  const seeded = (seed: number) => {
+    let s = seed;
+    return () => {
+      s = (s * 1664525 + 1013904223) % 4294967296;
+      return s / 4294967296;
+    };
+  };
+
+  it('has none in the first three crossings of a round', () => {
+    for (let crossing = 0; crossing < POLLEN.after; crossing++) {
+      for (const r of [0, 0.1, 0.5, 0.99]) expect(placePollen(arena, 1, 70, crossing, () => r)).toEqual([]);
+    }
+    expect(POLLEN.after).toBe(3);
+  });
+
+  it('comes one grain or two at a time, often enough to notice', () => {
+    expect(placePollen(arena, 1, 70, 3, () => 0)).toHaveLength(2);
+    expect(placePollen(arena, 1, 70, 3, () => POLLEN.two + 0.01)).toHaveLength(1);
+    expect(placePollen(arena, 1, 70, 3, () => 0.99)).toHaveLength(0);
+    const rng = seeded(5);
+    let crossingsWithPollen = 0;
+    for (let i = 0; i < 1000; i++) if (placePollen(arena, 1, 70, 10, rng).length) crossingsWithPollen += 1;
+    expect(crossingsWithPollen / 1000).toBeCloseTo(POLLEN.one + POLLEN.two, 1);
+  });
+
+  it('sits in the first half of the crossing, below the word and above the floor, both ways and at any height', () => {
+    for (const height of [400, 560, 700, 900]) {
+      const a = { width: 390, height };
+      const across = a.width - 2 * WALL;
+      for (const dir of [1, -1] as const) {
+        const rng = seeded(height + dir);
+        for (let i = 0; i < 200; i++) {
+          for (const g of placePollen(a, dir, 70, 5, rng)) {
+            const fromWall = dir === 1 ? g.x - WALL : a.width - WALL - g.x;
+            expect(fromWall / across).toBeGreaterThanOrEqual(POLLEN.from);
+            expect(fromWall / across).toBeLessThanOrEqual(POLLEN.to);
+            expect(g.y).toBeGreaterThanOrEqual(70);
+            expect(g.y).toBeLessThanOrEqual(height - POLLEN.floor);
+          }
+        }
+      }
+    }
+  });
+
+  it('is in the same place whichever door is right', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const grains = [0, 1, 2].map((correct) => {
+        placeDoors(arena, correct, seeded(99), 70, 3);
+        return placePollen(arena, 1, 70, 4, seeded(seed));
+      });
+      expect(grains[1]).toEqual(grains[0]);
+      expect(grains[2]).toEqual(grains[0]);
+    }
+  });
+
+  it('is taken when the bee flies through it, and left when it misses', () => {
+    const bee = launched(0);
+    const hit = { x: bee.x + BEE_RADIUS, y: bee.y - 4 };
+    const miss = { x: bee.x, y: bee.y + BEE_RADIUS + POLLEN.reach + 2 };
+    expect(collectPollen(bee, [hit, miss])).toEqual({ left: [miss], taken: [hit] });
   });
 });
 

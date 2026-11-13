@@ -3,6 +3,7 @@ import {
   BEE_RADIUS,
   beeWords,
   bumpCounts,
+  collectPollen,
   difficulty,
   doorLabel,
   enterRoom,
@@ -11,6 +12,8 @@ import {
   newBee,
   nextSpeed,
   placeDoors,
+  placePollen,
+  POLLEN,
   SPEED,
   step,
   turn,
@@ -18,6 +21,7 @@ import {
   type Arena,
   type Bee,
   type Door,
+  type Grain,
   type WallHit,
 } from '../../lib/bounce';
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
@@ -31,6 +35,8 @@ import { GameShell, Tally } from './GameShell';
 
 const REVEAL_MS = 1400;
 const MIN_POOL = 8;
+/** Pollen can be switched off in bounce.ts; then its count is not shown either. */
+const POLLEN_ON = POLLEN.one + POLLEN.two > 0;
 /** How long the view takes to slide after the bee into the next room. */
 const ROOM_SLIDE_MS = 320;
 /** The right answer floats up from the door for this long. */
@@ -128,10 +134,12 @@ interface FieldProps {
   onWrong: (word: Word, chosen: Word | null) => void;
   /** Bumps into the wall on the current question so far; 0 again when a new question starts. */
   onBumps: (bumps: number) => void;
+  /** A grain of pollen picked up. */
+  onPollen: () => void;
 }
 
 /** The play area: the word at the top, the bee, the walls and their doors. One round per mount. */
-function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps }: FieldProps) {
+function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps, onPollen }: FieldProps) {
   const [stream] = useState(() => new WordStream(pool));
   const [question, setQuestion] = useState<Question>(() => makeQuestion(pool, stream.next(), Math.random, 2));
   const [reveal, setReveal] = useState<Word | null>(null);
@@ -140,8 +148,8 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const promptRef = useRef<HTMLDivElement>(null);
   // The loop below starts once; it reaches the latest callbacks through this ref.
-  const cb = useRef({ onStart, onCorrect, onWrong, onBumps });
-  cb.current = { onStart, onCorrect, onWrong, onBumps };
+  const cb = useRef({ onStart, onCorrect, onWrong, onBumps, onPollen });
+  cb.current = { onStart, onCorrect, onWrong, onBumps, onPollen };
   const soundOn = useRef(sound);
   soundOn.current = sound;
   /** Called when a finger, the mouse or a key goes down and when it is let go; set by the game loop below. */
@@ -167,6 +175,10 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
     let run = 0;
     /** Bumps into the solid wall on the current question. */
     let bumps = 0;
+    /** Crossings from wall to wall this round, counting from 0; pollen comes after the first few. */
+    let crossing = 0;
+    /** Pollen hanging in the air on this crossing. */
+    let grains: Grain[] = [];
     /** Which room the bee is in: one more for each room to the right, one less to the left. */
     let room = 0;
     /** The door the bee came in by, on the wall behind it. Gone once it turns to face that wall. */
@@ -236,10 +248,17 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
       }
     };
 
+    /** A new crossing has begun: pollen for it, and any left from the last one is gone. */
+    const newCrossing = () => {
+      crossing += 1;
+      grains = placePollen(arena, bee!.dir, headroom(), crossing, Math.random);
+    };
+
     /** Back the other way in the same room: the wall it now faces gets fresh doors. */
     const turnAround = () => {
       turn(bee!, arena, speed, doors());
       entry = null;
+      newCrossing();
     };
 
     /** On through `door` into the next room, with the view sliding after the bee. */
@@ -247,6 +266,7 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
       const b = bee!;
       const shift = b.dir * (arena.width - WALL);
       enterRoom(b, arena, speed, doors());
+      newCrossing();
       room += b.dir;
       leftEntry = entry;
       entry = door;
@@ -266,10 +286,10 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
     };
 
     /** A burst of dots from where the bee met the wall, thrown back into the room. */
-    const burst = (kind: keyof typeof BURSTS, x: number, y: number, now: number, back: number) => {
+    const burst = (kind: keyof typeof BURSTS, x: number, y: number, now: number, back: number, color?: string) => {
       if (reduceMotion) return;
       const spec = BURSTS[kind];
-      const color = kind === 'right' ? colors.honey : kind === 'wrong' ? colors.bad : colors.muted;
+      color ??= kind === 'right' ? colors.honey : kind === 'wrong' ? colors.bad : colors.muted;
       const count = spec.count + Math.floor(Math.random() * (spec.extra + 1));
       for (let i = 0; i < count; i++) {
         const speed = spec.speed * (0.4 + 0.6 * Math.random());
@@ -549,6 +569,19 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
       drawWall(bee.dir, bee.doors, true, now);
       drawWall(behind, entry ? [entry] : [], false, now);
 
+      for (const g of grains) {
+        // A grain of pollen, bobbing slowly, with a soft glow so it is seen at a glance.
+        const y = g.y + (reduceMotion ? 0 : Math.sin(now / 420 + g.x) * 4);
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = colors.honey;
+        ctx.beginPath();
+        ctx.arc(g.x, y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(g.x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       for (const p of particles) {
         ctx.globalAlpha = Math.max(0, 1 - (now - p.born) / p.life);
         ctx.fillStyle = p.color;
@@ -623,6 +656,13 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
         // A quick tap is one flap; holding on keeps the bee climbing.
         const lifting = heldSince > 0 && now - heldSince >= HOLD_DELAY_MS;
         const hit = step(bee, dt, arena, lifting);
+        const { left, taken } = collectPollen(bee, grains);
+        grains = left;
+        for (const g of taken) {
+          cb.current.onPollen();
+          feedback('pollen');
+          burst('bump', g.x, g.y, now, 1, colors.honey);
+        }
         if (hit) onWall(hit, now);
         if (run < TRAIL.from || reduceMotion) {
           trail = [];
@@ -662,6 +702,8 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
             camera,
             bumps,
             doors: bee?.doors.length,
+            pollen: grains,
+            crossing,
             particles: particles.length,
             trail: trail.length,
             answer: q.answer.id,
@@ -754,8 +796,9 @@ function SpeakerIcon({ on }: { on: boolean }) {
 }
 
 /**
- * Tap, or hold on, to keep the bee in the air. It bounces between two walls; the wall ahead has
- * two doors, each labelled with an answer. Fly through the right one.
+ * Tap, or hold on, to keep the bee in the air. The wall ahead has a door per answer: the right
+ * one leads on into the next room, a wrong one or the wall itself sends the bee back. Pollen
+ * hanging in the air on the way across is a bonus to pick up.
  */
 export function BusyBee({ data, update, onExit }: { data: AppData; update: Update; onExit: () => void }) {
   const [{ topic, show }] = useState(data.settings);
@@ -771,6 +814,8 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [tally, setTally] = useState({ ok: 0, bad: 0 });
+  /** Grains of pollen picked up this round. Not saved; it counts for nothing else. */
+  const [pollen, setPollen] = useState(0);
   /** Every mistake this round, in order: what was asked and which wrong answer was picked. */
   const [mistakes, setMistakes] = useState<{ word: Word; chosen: Word | null }[]>([]);
   /** Set after a bump: one more on the same question counts as a miss. */
@@ -789,12 +834,27 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
     setStarted(false);
     setFinished(false);
     setTally({ ok: 0, bad: 0 });
+    setPollen(0);
     setMistakes([]);
     setCareful(false);
   };
 
   return (
-    <GameShell title="Busy bee" status={<Tally ok={tally.ok} bad={tally.bad} />} onExit={onExit}>
+    <GameShell
+      title="Busy bee"
+      status={
+        <span className="bee-status">
+          <Tally ok={tally.ok} bad={tally.bad} />
+          {POLLEN_ON && (
+            <span className="tally-pollen" role="img" aria-label={`${pollen} pollen`}>
+              <i className="dot dot-pollen" />
+              {pollen}
+            </span>
+          )}
+        </span>
+      }
+      onExit={onExit}
+    >
       {finished ? (
         <div className="card card-done bee-summary" role="status">
           <p className="done-title" lang="mt">
@@ -809,6 +869,12 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
               <i className="dot dot-no" />
               {tally.bad} wrong
             </li>
+            {POLLEN_ON && (
+              <li>
+                <i className="dot dot-pollen" />
+                {pollen} pollen
+              </li>
+            )}
           </ul>
 
           {mistakes.length > 0 && (
@@ -863,6 +929,7 @@ export function BusyBee({ data, update, onExit }: { data: AppData; update: Updat
               setMistakes((list) => [...list, { word, chosen }]);
             }}
             onBumps={(bumps) => setCareful(bumps > 0)}
+            onPollen={() => setPollen((n) => n + 1)}
           />
           <div className="bee-foot">
             <p className="bee-hint">

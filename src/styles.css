@@ -853,6 +853,24 @@ select {
   color: var(--no);
 }
 
+.bee-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tally-pollen {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
+.dot-pollen {
+  background: var(--accent);
+}
+
 .game-list {
   display: flex;
   flex-direction: column;
