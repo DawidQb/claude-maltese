@@ -3,6 +3,7 @@ import {
   BEE_RADIUS,
   beeWords,
   bumpCounts,
+  difficulty,
   doorLabel,
   enterRoom,
   flap,
@@ -20,6 +21,7 @@ import {
   type WallHit,
 } from '../../lib/bounce';
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
+import { similarity } from '../../lib/letters';
 import type { Direction } from '../../lib/srs';
 import type { AppData, ShowLang } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
@@ -120,6 +122,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
     const arena: Arena = { width: 0, height: 0 };
     let colors = readColors();
     let q = firstQuestion.current;
+    /** Door size for the current question: smaller as the run grows. */
+    let doorScale = 1;
     let bee: Bee | null = null;
     let speed = SPEED.start;
     /** Right answers in a row. Never shown; it drives difficulty and effects. */
@@ -151,8 +155,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
     const correctOption = () => q.options.findIndex((w) => w.id === q.answer.id);
     /** The strip at the top of the field taken by the word being asked. */
     const headroom = () => (promptRef.current?.offsetHeight ?? 0) + 6;
-    /** Doors stay below the word shown at the top of the field. */
-    const doors = () => placeDoors(arena, correctOption(), Math.random, headroom());
+    /** A door per option, below the word shown at the top of the field. */
+    const doors = () => placeDoors(arena, correctOption(), Math.random, headroom(), q.options.length, doorScale);
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -175,8 +179,13 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
       }
     };
 
+    /** The next word, as hard as the run of right answers so far says. */
     const nextQuestion = () => {
-      q = makeQuestion(pool, stream.next(), Math.random, 2);
+      const level = difficulty(run, arena, headroom());
+      const answer = stream.next();
+      const lookalike = level.lookalikes ? (w: Word) => similarity(w.mt, answer.mt) : undefined;
+      q = makeQuestion(pool, answer, Math.random, level.doors, lookalike);
+      doorScale = level.scale;
       setQuestion(q);
       if (bumps) {
         bumps = 0;
@@ -523,6 +532,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong, onBumps }: Fie
             room,
             camera,
             bumps,
+            doors: bee?.doors.length,
             answer: q.answer.id,
             options: q.options.map((w) => w.id),
           };

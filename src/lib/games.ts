@@ -82,9 +82,26 @@ export interface Question {
   options: Word[];
 }
 
-/** Wrong options come from the answer's own topic first, so they can't be ruled out at a glance. */
-export function makeQuestion(words: readonly Word[], answer: Word, rng: Rng = Math.random, optionCount = 4): Question {
-  const sameTopic = shuffle(words.filter((w) => w.topic === answer.topic), rng);
+/** With a preference, wrong options are drawn at random from this many of the best-scoring words. */
+const PREFERRED = 4;
+
+/**
+ * Wrong options come from the answer's own topic first, so they can't be ruled out at a glance.
+ * `prefer` scores the candidates (higher is better): the wrong options then come from the best
+ * few in the topic, in random order, so the same word does not always get the same decoy.
+ */
+export function makeQuestion(
+  words: readonly Word[],
+  answer: Word,
+  rng: Rng = Math.random,
+  optionCount = 4,
+  prefer?: (candidate: Word) => number,
+): Question {
+  let sameTopic = shuffle(words.filter((w) => w.topic === answer.topic), rng);
+  if (prefer) {
+    const ranked = sameTopic.filter((w) => w.mt !== answer.mt).sort((a, b) => prefer(b) - prefer(a));
+    sameTopic = [...shuffle(ranked.slice(0, PREFERRED), rng), ...ranked.slice(PREFERRED)];
+  }
   const others = shuffle(words.filter((w) => w.topic !== answer.topic), rng);
   return { answer, options: shuffle(takeDistinct([...sameTopic, ...others], optionCount, [answer]), rng) };
 }

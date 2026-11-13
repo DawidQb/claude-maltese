@@ -115,6 +115,38 @@ describe('makeQuestion', () => {
     expect(q.options).toContain(words[1]);
   });
 
+  it('with a preference, still offers distinct options including the answer', () => {
+    const rng = seeded(23);
+    for (const topic of TOPICS) {
+      const words = wordsInTopic(topic);
+      for (const answer of words.slice(0, 10)) {
+        for (const count of [2, 3]) {
+          const q = makeQuestion(words, answer, rng, count, (w) => -Math.abs(w.mt.length - answer.mt.length));
+          expect(q.options).toHaveLength(count);
+          expect(q.options).toContain(answer);
+          expect(new Set(q.options.map((w) => w.mt)).size).toBe(count);
+          expect(new Set(q.options.map((w) => w.en)).size).toBe(count);
+        }
+      }
+    }
+  });
+
+  it('with a preference, takes the wrong option from the best few, not always the same one', () => {
+    const answer = word('target');
+    const near = ['a', 'b', 'c', 'd'].map((x) => word(`near-${x}`));
+    const far = Array.from({ length: 12 }, (_, i) => word(`far-${i}`));
+    const words = [answer, ...far, ...near];
+    const prefer = (w: Word) => (w.mt.startsWith('near') ? 1 : 0);
+    const rng = seeded(31);
+    const picked = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      const wrong = makeQuestion(words, answer, rng, 2, prefer).options.find((w) => w !== answer)!;
+      expect(wrong.mt.startsWith('near')).toBe(true);
+      picked.add(wrong.mt);
+    }
+    expect(picked.size).toBe(4);
+  });
+
   it('does not always put the answer in the same place', () => {
     const rng = seeded(5);
     const positions = new Set(WORDS.slice(0, 40).map((w) => makeQuestion(WORDS, w, rng).options.indexOf(w)));

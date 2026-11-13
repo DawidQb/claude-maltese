@@ -39,6 +39,37 @@ export function toKeys(word: string): string[] {
   return keys;
 }
 
+/** A letter with its look-alikes folded into one, so "ħ" and "h" count as the same. */
+function fold(key: string): string {
+  return LOOKALIKES.find((group) => group.includes(key))?.[0] ?? key;
+}
+
+/**
+ * How alike two Maltese words look, from 0 (nothing in common) to 1 (the same once look-alike
+ * letters are folded together): mostly the letters they share, then how long a start they
+ * share, then how close they are in length.
+ */
+export function similarity(a: string, b: string): number {
+  const ka = toKeys(a).map(fold);
+  const kb = toKeys(b).map(fold);
+  if (ka.length === 0 || kb.length === 0) return 0;
+  let prefix = 0;
+  while (prefix < Math.min(ka.length, kb.length) && ka[prefix] === kb[prefix]) prefix += 1;
+  const left = [...kb];
+  let shared = 0;
+  for (const k of ka) {
+    const i = left.indexOf(k);
+    if (i >= 0) {
+      shared += 1;
+      left.splice(i, 1);
+    }
+  }
+  const letters = (2 * shared) / (ka.length + kb.length);
+  const start = prefix / Math.min(ka.length, kb.length);
+  const length = 1 - Math.abs(ka.length - kb.length) / Math.max(ka.length, kb.length);
+  return 0.6 * letters + 0.25 * start + 0.15 * length;
+}
+
 const ROW = 5;
 const MIN_KEYS = 10;
 

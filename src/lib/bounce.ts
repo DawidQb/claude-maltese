@@ -56,6 +56,10 @@ export const HOLD_DELAY_MS = 150;
 const FLOOR_HOP = 330;
 const DOOR_PAD = 14;
 const DOOR_GAP = 28;
+/** No door is ever shorter than this, however hard the game gets. */
+export const MIN_DOOR = 72;
+/** A third door is added only if each of the three bands has room for a door this tall. */
+const MIN_THIRD_DOOR = 84;
 
 /** Bumps into the solid wall forgiven per question; the next one counts as a wrong answer. */
 export const MAX_BUMPS = 1;
@@ -69,7 +73,7 @@ export function bumpCounts(bumpsSoFar: number): 'bump' | 'wrong' {
  * Horizontal speed as a fraction of the arena width per second. It starts at about
  * three seconds per crossing and never drops below two, so the labels stay readable.
  */
-export const SPEED = { start: 0.3, min: 0.25, max: 0.48, faster: 0.006, slower: 0.04 };
+export const SPEED = { start: 0.3, min: 0.25, max: 0.48, faster: 0.012, slower: 0.04 };
 
 export function nextSpeed(speed: number, event: WallEvent): number {
   if (event === 'correct') return Math.min(SPEED.max, speed + SPEED.faster);
@@ -78,9 +82,44 @@ export function nextSpeed(speed: number, event: WallEvent): number {
 }
 
 /**
+ * The game tightens as the run of right answers grows: from `lookalikes` on, the wrong answers
+ * look like the right one; from `narrow`, the doors shrink to `narrowScale`; from `threeDoors`,
+ * a third door is added, or, where three would not fit, two doors shrink to `crampedScale`.
+ */
+export const DIFFICULTY = { lookalikes: 3, narrow: 6, threeDoors: 9, narrowScale: 0.85, crampedScale: 0.7 };
+
+export interface Difficulty {
+  doors: 2 | 3;
+  /** Door size, as a share of the full size. */
+  scale: number;
+  /** Wrong answers chosen for looking like the right one. */
+  lookalikes: boolean;
+}
+
+/** How hard the next question is, after `run` right answers in a row. A miss starts again from 0. */
+export function difficulty(run: number, arena: Arena, headroom = 0): Difficulty {
+  const lookalikes = run >= DIFFICULTY.lookalikes;
+  if (run < DIFFICULTY.narrow) return { doors: 2, scale: 1, lookalikes };
+  if (run < DIFFICULTY.threeDoors) return { doors: 2, scale: DIFFICULTY.narrowScale, lookalikes };
+  if (doorRoom(arena, headroom, 3) >= MIN_THIRD_DOOR) return { doors: 3, scale: DIFFICULTY.narrowScale, lookalikes };
+  return { doors: 2, scale: DIFFICULTY.crampedScale, lookalikes };
+}
+
+/** Margins of door `i` of `count`: the top and bottom doors keep clear of the ceiling and floor, the others of each other. */
+const above = (i: number) => (i === 0 ? DOOR_PAD : DOOR_GAP / 2);
+const below = (i: number, count: number) => (i === count - 1 ? DOOR_PAD : DOOR_GAP / 2);
+
+/** The tallest door that fits in every band when the space below `headroom` is split into `count`. */
+function doorRoom(arena: Arena, headroom: number, count: number): number {
+  const band = (arena.height - headroom) / count;
+  return Math.min(...Array.from({ length: count }, (_, i) => band - above(i) - below(i, count)));
+}
+
+/**
  * The space below `headroom` is split into `count` equal bands, with one door at a random height
  * in each; with two doors, one in the upper half and one in the lower half. `headroom` keeps a
- * strip at the top free of doors, for the word being asked. `scale` shrinks the doors.
+ * strip at the top free of doors, for the word being asked. `scale` shrinks the doors, but never
+ * below `MIN_DOOR`.
  */
 export function placeDoors(
   arena: Arena,
@@ -91,11 +130,8 @@ export function placeDoors(
   scale = 1,
 ): Door[] {
   const band = (arena.height - headroom) / count;
-  // The top and bottom doors keep clear of the ceiling and floor, the others of each other.
-  const above = (i: number) => (i === 0 ? DOOR_PAD : DOOR_GAP / 2);
-  const below = (i: number) => (i === count - 1 ? DOOR_PAD : DOOR_GAP / 2);
-  const room = Math.min(...Array.from({ length: count }, (_, i) => band - above(i) - below(i)));
-  const size = Math.min(room, Math.max(96, Math.min(150, arena.height * 0.26)) * scale);
+  const room = doorRoom(arena, headroom, count);
+  const size = Math.min(room, Math.max(MIN_DOOR, Math.max(96, Math.min(150, arena.height * 0.26)) * scale));
   const slack = room - size;
   return Array.from({ length: count }, (_, option) => {
     const top = headroom + option * band + above(option) + rng() * slack;

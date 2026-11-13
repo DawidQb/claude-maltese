@@ -3,10 +3,13 @@ import {
   BEE_RADIUS,
   beeWords,
   bumpCounts,
+  DIFFICULTY,
+  difficulty,
   doorLabel,
   enterRoom,
   flap,
   MAX_BUMPS,
+  MIN_DOOR,
   newBee,
   nextSpeed,
   placeDoors,
@@ -103,6 +106,41 @@ describe('placeDoors', () => {
       }
     }
     throw new Error('no wall reached');
+  });
+
+  it('places three doors inside the arena, below the word, without overlap, at any phone height', () => {
+    for (const height of [400, 500, 560, 700, 900]) {
+      for (const r of [0, 0.5, 0.999]) {
+        for (const correct of [0, 1, 2]) {
+          const doors = placeDoors({ width: 360, height }, correct, () => r, 70, 3, DIFFICULTY.narrowScale);
+          expect(doors).toHaveLength(3);
+          expect(doors.filter((d) => d.correct).map((d) => d.option)).toEqual([correct]);
+          expect(doors[0].top).toBeGreaterThan(70);
+          expect(doors[2].bottom).toBeLessThanOrEqual(height);
+          for (let i = 1; i < 3; i++) expect(doors[i].top).toBeGreaterThan(doors[i - 1].bottom + BEE_RADIUS);
+          for (const d of doors) expect(d.bottom - d.top).toBeGreaterThanOrEqual(MIN_DOOR);
+        }
+      }
+    }
+  });
+
+  it('never makes a door shorter than MIN_DOOR, however small the scale', () => {
+    for (const height of [400, 560, 700, 900]) {
+      for (const scale of [1, DIFFICULTY.narrowScale, DIFFICULTY.crampedScale, 0.3]) {
+        for (const d of placeDoors({ width: 360, height }, 0, () => 0.5, 70, 2, scale)) {
+          expect(d.bottom - d.top).toBeGreaterThanOrEqual(MIN_DOOR);
+        }
+      }
+    }
+  });
+
+  it('shrinks the doors with the scale', () => {
+    const a = { width: 360, height: 800 };
+    const size = (scale: number) => {
+      const [d] = placeDoors(a, 0, () => 0.5, 70, 2, scale);
+      return d.bottom - d.top;
+    };
+    expect(size(DIFFICULTY.narrowScale)).toBeCloseTo(size(1) * DIFFICULTY.narrowScale, 5);
   });
 
   it('marks exactly the door of the right answer', () => {
@@ -264,6 +302,35 @@ describe('entering the next room', () => {
   }
 });
 
+describe('difficulty', () => {
+  const tall = { width: 390, height: 700 };
+
+  it('starts gentle and tightens as the run of right answers grows', () => {
+    const at = (run: number) => difficulty(run, tall, 70);
+    for (const run of [0, 1, 2]) expect(at(run)).toEqual({ doors: 2, scale: 1, lookalikes: false });
+    for (const run of [3, 4, 5]) expect(at(run)).toEqual({ doors: 2, scale: 1, lookalikes: true });
+    for (const run of [6, 7, 8]) expect(at(run)).toEqual({ doors: 2, scale: DIFFICULTY.narrowScale, lookalikes: true });
+    for (const run of [9, 10, 25]) expect(at(run)).toEqual({ doors: 3, scale: DIFFICULTY.narrowScale, lookalikes: true });
+  });
+
+  it('keeps two smaller doors where three would not fit', () => {
+    expect(difficulty(9, { width: 390, height: 300 }, 70)).toEqual({ doors: 2, scale: DIFFICULTY.crampedScale, lookalikes: true });
+    // A tall prompt strip leaves too little room, too.
+    expect(difficulty(9, { width: 390, height: 420 }, 140).doors).toBe(2);
+  });
+
+  it('adds the third door only where each of the three is comfortably tall', () => {
+    for (const height of [300, 400, 450, 500, 560, 700, 900]) {
+      const level = difficulty(9, { width: 390, height }, 70);
+      if (level.doors === 3) {
+        for (const d of placeDoors({ width: 390, height }, 0, () => 0.5, 70, 3, level.scale)) {
+          expect(d.bottom - d.top).toBeGreaterThanOrEqual(84);
+        }
+      }
+    }
+  });
+});
+
 describe('bumpCounts', () => {
   it('forgives one bump per question and counts the next as a miss', () => {
     expect(MAX_BUMPS).toBe(1);
@@ -281,6 +348,11 @@ describe('nextSpeed', () => {
     let s = SPEED.start;
     for (let i = 0; i < 200; i++) s = nextSpeed(s, 'correct');
     expect(s).toBe(SPEED.max);
+    // Top speed after about fifteen right answers.
+    let fifteen = SPEED.start;
+    for (let i = 0; i < 14; i++) fifteen = nextSpeed(fifteen, 'correct');
+    expect(fifteen).toBeLessThan(SPEED.max);
+    expect(nextSpeed(nextSpeed(fifteen, 'correct'), 'correct')).toBe(SPEED.max);
     for (let i = 0; i < 200; i++) s = nextSpeed(s, 'wrong');
     expect(s).toBe(SPEED.min);
   });
