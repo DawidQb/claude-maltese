@@ -2252,12 +2252,69 @@ select {
   box-shadow: 0 0 0 3px var(--no), var(--shadow);
 }
 
+/* A new visitor comes in quickly, so a fast player never waits for it. */
+.sting-card {
+  animation-duration: 0.12s;
+}
+
+/* A right call: let in, the card slides down and shrinks into the bottom edge… */
+.sting-card.is-in {
+  animation: sting-in 0.18s ease-in forwards;
+}
+
+@keyframes sting-in {
+  from {
+    transform: translateX(var(--from-x, 0)) rotate(var(--from-r, 0));
+  }
+  to {
+    transform: translateY(45%) scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* …stung, it turns red and flies off to the left. */
+.sting-card.is-out {
+  background: color-mix(in srgb, var(--no) 20%, var(--surface));
+  animation: sting-out 0.18s ease-in forwards;
+}
+
+@keyframes sting-out {
+  from {
+    transform: translateX(var(--from-x, 0)) rotate(var(--from-r, 0));
+  }
+  to {
+    transform: translateX(-120%) rotate(-14deg);
+    opacity: 0;
+  }
+}
+
+/* The timer cells a wrong call took flash red as they empty. */
+.honey-timer i.is-lost {
+  animation: sting-lost 0.6s ease;
+}
+
+@keyframes sting-lost {
+  0%,
+  50% {
+    background: var(--no);
+  }
+}
+
 /* A wrong call: the false claim struck through, the real meaning under it. */
 .sting-claim.is-false {
   text-decoration: line-through;
   text-decoration-color: var(--no);
   text-decoration-thickness: 2px;
   color: var(--muted);
+}
+
+.sting-claim.is-true {
+  color: var(--known);
+}
+
+.sting-claim.is-true .tr-lines span + span {
+  color: inherit;
+  opacity: 0.85;
 }
 
 .sting-correction {

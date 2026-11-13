@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { WordStream } from '../../lib/games';
 import { AFTER_RIGHT_MS, AFTER_WRONG_MS, guardPool, judge, makeVisitor, PENALTY_MS, ROUND_MS, type Visitor } from '../../lib/guard';
-import { wakeSound } from '../../lib/sound';
+import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic } from '../../lib/words';
 import { TranslationLines } from '../Cards';
@@ -14,6 +14,16 @@ const CELL_MS = ROUND_MS / TIMER_CELLS;
 const SWIPE_PX = 72;
 /** The card tilts this much at most while it follows the finger. */
 const MAX_TILT_DEG = 12;
+/** The timer cells a wrong call empties flash red this long. */
+const LOST_FLASH_MS = 600;
+/** Each right call in a row raises the sting's zap by this much, up to `MAX_PITCH`. */
+const PITCH_STEP = 0.03;
+const MAX_PITCH = 1.3;
+/** Vibration after a wrong call, in ms. */
+const BUZZ_MS = 40;
+
+/** The tilt of a card dragged `dx` px. */
+const tilt = (dx: number) => Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, dx / 12));
 
 type Phase = 'ready' | 'playing' | 'over';
 
@@ -52,6 +62,8 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
   /** A swipe in progress: where it started, and how far it has gone. */
   const drag = useRef<{ id: number; x: number } | null>(null);
   const [dx, setDx] = useState(0);
+  /** The clock before and after the last penalty, so the cells it emptied can flash. */
+  const [lost, setLost] = useState<{ from: number; to: number } | null>(null);
   const motion = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const ask = useCallback(() => {
@@ -98,19 +110,36 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
 
   useEffect(() => () => window.clearTimeout(nextTimer.current), []);
 
+  useEffect(() => {
+    if (!lost) return;
+    const id = window.setTimeout(() => setLost(null), LOST_FLASH_MS);
+    return () => window.clearTimeout(id);
+  }, [lost]);
+
+  /** A sound, and with it a buzz on phones that can; both off with the sound switch. */
+  const feedback = (name: Sound, pitch = 1, buzz = 0) => {
+    if (!data.settings.sound) return;
+    playSound(name, pitch);
+    if (buzz) navigator.vibrate?.(buzz);
+  };
+
   /** Let in (`true`) or sting (`false`) the visitor on screen. */
   const decide = (letIn: boolean) => {
     if (phase !== 'playing' || call !== null || !visitor) return;
     const right = judge(visitor, letIn);
     setCall({ letIn, right });
     if (right) {
+      feedback(letIn ? 'pollen' : 'laser', Math.min(MAX_PITCH, 1 + run.current * PITCH_STEP));
       run.current += 1;
       scoreRef.current += 1;
       setScore(scoreRef.current);
     } else {
+      feedback('wrong', 1, BUZZ_MS);
       run.current = 0;
+      const before = Math.max(0, endAt.current - Date.now());
       endAt.current -= PENALTY_MS;
       setRemaining(Math.max(0, endAt.current - Date.now()));
+      setLost({ from: Math.max(0, before - PENALTY_MS), to: before });
       setWrong((n) => n + 1);
       stream.repeatLater(visitor.word);
       setMistakes((list) => [...list, { word: visitor.word, chosen: visitor.honest ? null : visitor.claim }]);
@@ -151,9 +180,11 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
     if (!d || d.id !== e.pointerId) return;
     drag.current = null;
     const moved = e.clientX - d.x;
-    setDx(0);
-    // A tap does nothing; a swipe far enough counts as that side's button.
-    if (Math.abs(moved) >= SWIPE_PX) decide(moved > 0);
+    // A tap does nothing; a swipe far enough counts as that side's button, and the card flies on from where it was let go.
+    if (Math.abs(moved) >= SWIPE_PX) {
+      setDx(moved);
+      decide(moved > 0);
+    } else setDx(0);
   };
 
   const onPointerCancel = () => {
@@ -162,11 +193,17 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
   };
 
   const seconds = Math.ceil(remaining / 1000);
-  const follow = !motion.current && dx !== 0;
-  const cardStyle: CSSProperties | undefined = follow
-    ? { transform: `translateX(${dx}px) rotate(${Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, dx / 12))}deg)`, transition: 'none' }
-    : undefined;
-  const leaning = dx >= SWIPE_PX ? ' is-leaning-in' : dx <= -SWIPE_PX ? ' is-leaning-out' : '';
+  const still = motion.current;
+  // While dragged the card follows the finger; once decided, a right call flies off from there and a wrong one springs back.
+  const cardStyle: CSSProperties | undefined = still
+    ? undefined
+    : call
+      ? ({ '--from-x': `${dx}px`, '--from-r': `${tilt(dx)}deg` } as CSSProperties)
+      : dx !== 0
+        ? { transform: `translateX(${dx}px) rotate(${tilt(dx)}deg)`, transition: 'none' }
+        : undefined;
+  const leaning = call ? '' : dx >= SWIPE_PX ? ' is-leaning-in' : dx <= -SWIPE_PX ? ' is-leaning-out' : '';
+  const exit = call?.right ? (call.letIn ? ' is-in' : ' is-out') : call ? ' is-wrong' : '';
 
   if (import.meta.env.DEV) {
     // Lets the automated check play; stripped from the production build.
@@ -182,7 +219,11 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
           <div className="timer">
             <div className="honey-timer" role="timer" aria-label={`${seconds} seconds left`}>
               {Array.from({ length: TIMER_CELLS }, (_, i) => (
-                <i key={i} style={{ '--fill': Math.min(1, Math.max(0, (remaining - i * CELL_MS) / CELL_MS)) } as CSSProperties} />
+                <i
+                  key={i}
+                  className={lost && (i + 1) * CELL_MS > lost.from && i * CELL_MS < lost.to ? 'is-lost' : undefined}
+                  style={{ '--fill': Math.min(1, Math.max(0, (remaining - i * CELL_MS) / CELL_MS)) } as CSSProperties}
+                />
               ))}
             </div>
             <span className="timer-num">{seconds}s</span>
@@ -190,7 +231,7 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
 
           <div
             key={turn}
-            className={`card card-quiz comb-bg sting-card${leaning}${call ? (call.right ? ' is-right' : ' is-wrong') : ''}`}
+            className={`card card-quiz comb-bg sting-card${leaning}${exit}`}
             style={cardStyle}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -203,7 +244,7 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
             <p className="bee-equals" aria-hidden="true">
               =
             </p>
-            <div className={`sting-claim${call && !call.right && !visitor.honest ? ' is-false' : ''}`}>
+            <div className={`sting-claim${call && !call.right ? (visitor.honest ? ' is-true' : ' is-false') : ''}`}>
               <TranslationLines word={visitor.claim} show={show} />
             </div>
             {call && !call.right && (
