@@ -61,7 +61,7 @@ export class WordStream {
 }
 
 /** Takes candidates in order, skipping any that share Maltese, Polish or English text with one already taken. */
-function takeDistinct(candidates: readonly Word[], count: number, start: Word[] = []): Word[] {
+export function takeDistinct(candidates: readonly Word[], count: number, start: Word[] = []): Word[] {
   const picked = [...start];
   for (const w of candidates) {
     if (picked.length >= count) break;
