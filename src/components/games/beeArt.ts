@@ -139,3 +139,70 @@ export function drawSpider(ctx: CanvasRenderingContext2D, x: number, y: number, 
   }
   ctx.restore();
 }
+
+/**
+ * A flower on its stem: a curved stem and two leaves in the green of `good`, and a head of six
+ * petals in honey round a centre in ink. `open` runs from 0 (petals folded up, a bud) to 1
+ * (spread); `nod` tips the head by that many radians, as when a bee is on it.
+ */
+export function drawFlower(
+  ctx: CanvasRenderingContext2D,
+  flower: { x: number; headY: number; baseY: number; r: number },
+  open: number,
+  nod: number,
+  colors: Colors,
+) {
+  const { x, headY, baseY, r } = flower;
+  const sway = r * 0.5;
+  ctx.save();
+  // Stem, bowed a little, and its two leaves.
+  ctx.strokeStyle = colors.good;
+  ctx.lineWidth = Math.max(2, r * 0.14);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, baseY);
+  ctx.quadraticCurveTo(x + sway, (baseY + headY) / 2, x, headY);
+  ctx.stroke();
+  ctx.fillStyle = colors.good;
+  for (const [side, at] of [
+    [-1, 0.55],
+    [1, 0.72],
+  ]) {
+    const ly = baseY + (headY - baseY) * at;
+    ctx.save();
+    ctx.translate(x + sway * 0.5, ly);
+    ctx.rotate(side * -0.6);
+    ctx.beginPath();
+    ctx.ellipse(side * r * 0.55, 0, r * 0.6, r * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  // Head: petals fanned upward in a bud, spread round the centre when open.
+  ctx.translate(x, headY);
+  ctx.rotate(nod);
+  const centre = () => {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = colors.ink;
+    ctx.fill();
+  };
+  if (open < 0.5) centre();
+  ctx.fillStyle = colors.honey;
+  ctx.strokeStyle = colors.tag;
+  ctx.lineWidth = 1;
+  for (let k = 0; k < 6; k++) {
+    const spread = (k * Math.PI) / 3 - Math.PI / 2;
+    const folded = -Math.PI / 2 + (k - 2.5) * 0.18;
+    const a = folded + (spread - folded) * open;
+    const dist = r * (0.25 + 0.45 * open);
+    ctx.save();
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.ellipse(dist, 0, r * 0.55, r * (0.24 + 0.12 * open), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (open >= 0.5) centre();
+  ctx.restore();
+}

@@ -2489,6 +2489,59 @@ html.no-scroll body {
   border-top: 1px solid var(--line);
 }
 
+/* The meaning asked for early, under the word the bee carries: smaller, it is not the flower yet. */
+.meadow-early {
+  font-size: 0.85rem;
+}
+
+.meadow-carried {
+  cursor: pointer;
+}
+
+.meadow-flower {
+  cursor: pointer;
+}
+
+/* Held open: a small pin in honey at the label's corner. */
+.meadow-flower.is-held::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.meadow-label {
+  overflow: visible;
+}
+
+.meadow-foot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.meadow-foot-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.meadow-pace {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.meadow-pace button {
+  min-height: 40px;
+}
+
 /* ---------- Word list ---------- */
 
 .filters {

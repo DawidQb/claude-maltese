@@ -52,12 +52,12 @@ describe('sanitize', () => {
       settings: { newPerDay: -4, show: 'de', direction: 'x2mt', topic: 'Dinosaurs', typing: 'yes' },
     });
     expect(out?.cards).toEqual({ 'mt2x:ilma': { box: 5, due: '2026-03-11' } });
-    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false });
+    expect(out?.settings).toEqual({ newPerDay: 10, show: 'both', direction: 'x2mt', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false, meadowPace: 'normal' });
   });
 
   it('fills in settings added after a progress file was saved', () => {
     const out = sanitize({ version: 1, cards: {}, settings: { newPerDay: 5, show: 'pl', direction: 'mt2x' } });
-    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false });
+    expect(out?.settings).toEqual({ newPerDay: 5, show: 'pl', direction: 'mt2x', gameDirection: 'x2mt', topic: 'all', typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false, meadowPace: 'normal' });
   });
 
   it('keeps the speed-round record and ignores a broken one', () => {
@@ -86,6 +86,13 @@ describe('sanitize', () => {
     expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3 } })?.games.stingBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: { stingBest: 'lots' } })?.games.stingBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: { stingBest: -1 } })?.games.stingBest).toBe(0);
+  });
+
+  it('keeps the pace of Watch the flowers, normal when it is missing or broken', () => {
+    expect(sanitize({ version: 1, cards: {}, settings: { meadowPace: 'often' } })?.settings.meadowPace).toBe('often');
+    expect(sanitize({ version: 1, cards: {}, settings: {} })?.settings.meadowPace).toBe('normal');
+    expect(sanitize({ version: 1, cards: {}, settings: { meadowPace: 'sometimes' } })?.settings.meadowPace).toBe('normal');
+    expect(sanitize({ version: 1, cards: {}, settings: { meadowPace: 3 } })?.settings.meadowPace).toBe('normal');
   });
 
   it('keeps the game direction apart from the Study direction, Polish / English → Maltese by default', () => {
