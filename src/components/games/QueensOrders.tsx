@@ -673,6 +673,12 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
   const [tally, setTally] = useState({ ok: 0, bad: 0 });
   const [audience, setAudience] = useState(0);
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
+  // The record to beat, fixed when the run starts.
+  const [bestBefore, setBestBefore] = useState(data.games.queenBest);
+  /** Orders filled this run, for saving the best when it ends. */
+  const filled = useRef(0);
+  /** Whether the run was played to the end, rather than ended with Finish. */
+  const [completed, setCompleted] = useState(false);
   const sound = data.settings.sound;
   const total = plan.reduce((n, a) => n + a.forms.length, 0);
 
@@ -685,6 +691,9 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
   const start = () => {
     if (sound) wakeSound();
     setRound((n) => n + 1);
+    filled.current = 0;
+    setCompleted(false);
+    setBestBefore(data.games.queenBest);
     setPlan(planRun(verbs).map((verb) => ({ verb, forms: planAudience(verb) })));
     setTally({ ok: 0, bad: 0 });
     setAudience(0);
@@ -692,6 +701,15 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
     setPhase('playing');
   };
 
+  /** The run played to the end: its score may be the new best. */
+  const complete = () => {
+    setPhase('over');
+    setCompleted(true);
+    const final = filled.current;
+    update((d) => (final > d.games.queenBest ? { ...d, games: { ...d.games, queenBest: final } } : d));
+  };
+
+  /** Finish pressed during the run: it ends here, and does not count as a best. */
   const finish = () => setPhase('over');
 
   return (
@@ -727,6 +745,7 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
             <>
               <p className="done-text">The queen asks for a form of a verb. Tap the worker carrying it before they reach her.</p>
               <p className="muted">{DIRECTION_LABEL.x2mt}</p>
+              {data.games.queenBest > 0 && <p className="muted">Your best: {data.games.queenBest}</p>}
               <div className="done-actions">
                 <button className="btn btn-primary btn-wide" onClick={start} autoFocus>
                   Start
@@ -744,13 +763,16 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
             plan={plan}
             show={show}
             sound={sound}
-            onRight={() => setTally((t) => ({ ...t, ok: t.ok + 1 }))}
+            onRight={() => {
+              filled.current += 1;
+              setTally((t) => ({ ...t, ok: t.ok + 1 }));
+            }}
             onMiss={(word, chosen) => {
               setTally((t) => ({ ...t, bad: t.bad + 1 }));
               setMistakes((list) => [...list, { word, chosen }]);
             }}
             onAudience={setAudience}
-            onOver={finish}
+            onOver={complete}
           />
           <div className="bee-foot">
             <p className="bee-hint">Tap the worker with the right form</p>
@@ -777,6 +799,13 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
           <p className="done-title">{tally.ok}</p>
           <p className="done-text">
             of {total} {total === 1 ? 'order' : 'orders'} filled
+          </p>
+          <p className="muted">
+            {completed && tally.ok > bestBefore && bestBefore > 0
+              ? `New best! Before: ${bestBefore}`
+              : bestBefore > 0
+                ? `Your best: ${completed ? Math.max(tally.ok, bestBefore) : bestBefore}`
+                : ''}
           </p>
           <ul className="legend legend-center">
             <li>

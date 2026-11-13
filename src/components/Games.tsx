@@ -30,6 +30,7 @@ export function Games({ data, update, onPlay }: Props) {
       id: 'queen',
       name: 'Queen’s orders',
       text: 'The queen asks for a form of a verb. Tap the worker carrying it before they reach her.',
+      detail: data.games.queenBest > 0 ? `best ${data.games.queenBest}` : 'All verbs with forms · topic does not apply',
     },
     {
       id: 'typing',
