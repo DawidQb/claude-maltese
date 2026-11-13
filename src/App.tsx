@@ -10,6 +10,7 @@ import { QueensOrders } from './components/games/QueensOrders';
 import { SpeedRound } from './components/games/SpeedRound';
 import { SpiderWeb } from './components/games/SpiderWeb';
 import { TrueOrSting } from './components/games/TrueOrSting';
+import { WatchFlowers } from './components/games/WatchFlowers';
 import { Home } from './components/Home';
 import { Settings } from './components/Settings';
 import { Study } from './components/Study';
@@ -56,6 +57,7 @@ export function App() {
           {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
           {activity === 'sting' && <TrueOrSting data={data} update={update} onExit={close} />}
           {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
+          {activity === 'meadow' && <WatchFlowers data={data} update={update} onExit={close} />}
         </div>
       </>
     );

@@ -1,7 +1,7 @@
 import type { AppData, Settings, Update } from '../lib/store';
 import { DirectionPicker, TopicOptions } from './Home';
 
-export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'spell' | 'web' | 'pairs' | 'sting' | 'speed';
+export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'spell' | 'web' | 'pairs' | 'sting' | 'speed' | 'meadow';
 
 interface Props {
   data: AppData;
@@ -67,6 +67,11 @@ export function Games({ data, update, onPlay }: Props) {
       name: 'Speed round',
       text: '60 seconds of questions with four answers to choose from.',
       detail: best > 0 ? `best ${best}` : undefined,
+    },
+    {
+      id: 'meadow',
+      name: 'Watch the flowers',
+      text: 'Bees fly about the flowers, and now and then one brings a word and a flower shows what it means.',
     },
   ];
 
