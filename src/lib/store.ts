@@ -10,7 +10,7 @@ export interface Settings {
   show: ShowLang;
   /** Direction on the Study tab. Progress is counted per direction. */
   direction: Direction;
-  /** Direction in the games that ask one way round (Busy bee, Speed round, Protect the hive). Separate from the Study direction. */
+  /** Direction in the games that ask one way round (Bouncy bee, Speed round, Protect the hive). Separate from the Study direction. */
   gameDirection: Direction;
   /** A topic name, or ALL_TOPICS. */
   topic: string;

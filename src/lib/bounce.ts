@@ -1,5 +1,5 @@
 /**
- * Physics and rules for the "Busy bee" game: a bee flies between two walls, and the wall
+ * Physics and rules for the "Bouncy bee" game: a bee flies between two walls, and the wall
  * it is heading for has a door per answer. The right door leads on into the next room;
  * a wrong door or the solid wall sends it back.
  * Pure functions on plain data, so the rules can be tested without a screen.
