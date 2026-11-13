@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { WordStream } from '../../lib/games';
 import { keyLabel, toKeys } from '../../lib/letters';
-import { wakeSound } from '../../lib/sound';
+import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import {
   cellAt,
   FLASH_MS,
@@ -25,6 +25,16 @@ const MAX_SIZE = 46;
 const CELL_SCALE = 0.93;
 /** A fast finger is followed in steps of this share of a cell's radius, so no cell it crosses is missed. */
 const SAMPLE = 0.25;
+
+/* Effects. None of them changes the rules. */
+/** A word shown lights up one cell of its path this often. */
+const SHOW_STEP_MS = 150;
+/** The cells of a word spelled pop one after another, this far apart. */
+const POP_STEP_MS = 60;
+/** Each letter traced blips a step up a major scale (semitones above the first). */
+const SCALE = [0, 2, 4, 5, 7, 9, 11, 12, 14];
+/** Vibration after a failed trace, in ms. */
+const BUZZ_MS = 30;
 
 type Phase = 'playing' | 'flash' | 'spelled' | 'shown' | 'over';
 
@@ -62,6 +72,9 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const sound = data.settings.sound;
   const woke = useRef(false);
+  /** Cells of the path lit so far while a word is shown. */
+  const [revealed, setRevealed] = useState(0);
+  const motion = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const combRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -82,6 +95,33 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
   }, [phase === 'over']);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => (motion.current = query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+
+  // A word shown lights up cell by cell along its path; at once with reduced motion.
+  useEffect(() => {
+    if (phase !== 'shown') return;
+    const length = comb.path.length;
+    if (motion.current) {
+      setRevealed(length);
+      return;
+    }
+    setRevealed(1);
+    const id = window.setInterval(() => setRevealed((n) => (n >= length ? n : n + 1)), SHOW_STEP_MS);
+    return () => window.clearInterval(id);
+  }, [phase, comb]);
+
+  /** A sound, and with it a buzz on phones that can; both off with the sound switch. */
+  const feedback = (name: Sound, pitch = 1, buzz = 0) => {
+    if (!sound) return;
+    playSound(name, pitch);
+    if (buzz) navigator.vibrate?.(buzz);
+  };
 
   const enter = (next: Phase) => {
     phaseRef.current = next;
@@ -105,6 +145,7 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
     setRound((r) => ({ word: w, comb: makeComb(w, run.current), turn: r.turn + 1 }));
     setTrace([]);
     setTries(TRIES);
+    setRevealed(0);
     failed.current = false;
     press.current = null;
     enter('playing');
@@ -119,6 +160,7 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
     setMistakes((list) => [...list, { word, chosen: null }]);
     setTrace([]);
     press.current = null;
+    feedback('wrong');
     enter('shown');
     later(SHOWN_MS, nextWord);
   };
@@ -129,7 +171,10 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
     if (next.length === before.length && next.every((c, i) => c === before[i])) return;
     setTrace(next);
     const verdict = judge(comb, next, word);
-    if (verdict === 'right') {
+    if (verdict === 'open' && next.length > before.length) {
+      feedback('pollen', 2 ** (SCALE[Math.min(next.length, SCALE.length) - 1] / 12));
+    } else if (verdict === 'right') {
+      feedback('right');
       run.current += 1;
       if (failed.current) stream.repeatLater(word);
       setTally((t) => ({ ...t, ok: t.ok + 1 }));
@@ -138,6 +183,7 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
       later(SPELLED_MS, nextWord);
     } else if (verdict === 'wrong') {
       failed.current = true;
+      feedback('bump', 1, BUZZ_MS);
       const left = tries - 1;
       setTries(left);
       press.current = null;
@@ -278,6 +324,15 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
   const shown = phase === 'shown';
   const cellW = Math.sqrt(3) * size * CELL_SCALE;
   const cellH = 2 * size * CELL_SCALE;
+  /** The line joins the cells traced, or the cells of a word shown lit so far. */
+  const line = shown ? comb.path.slice(0, revealed) : path;
+  const points = line
+    .map((i) => {
+      const c = hexCentre(i, size);
+      return `${(box.w / 2 + c.x).toFixed(1)},${(box.h / 2 + c.y).toFixed(1)}`;
+    })
+    .join(' ');
+  const lineState = shown || phase === 'spelled' ? 'is-right' : phase === 'flash' ? 'is-wrong' : '';
 
   return (
     <GameShell title="Honeycomb spell" status={<Tally ok={tally.ok} bad={tally.bad} />} onExit={onExit}>
@@ -291,7 +346,7 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
 
       <div
         ref={combRef}
-        className="spell-comb"
+        className={`spell-comb${phase === 'flash' ? ' is-shaking' : ''}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -304,14 +359,14 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
             const inTrace = at >= 0;
             const onPath = comb.path.indexOf(i);
             const state = shown
-              ? onPath >= 0
+              ? onPath >= 0 && onPath < revealed
                 ? ' is-right'
                 : ''
               : inTrace
                 ? phase === 'flash'
                   ? ' is-wrong'
                   : phase === 'spelled'
-                    ? ' is-right'
+                    ? ' is-right is-pop'
                     : ' is-picked'
                 : '';
             // The ring marks the first cell until it is in use; then its state shows instead.
@@ -321,6 +376,7 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
               top: `calc(50% + ${c.y - cellH / 2}px)`,
               width: cellW,
               height: cellH,
+              animationDelay: phase === 'spelled' ? `${at * POP_STEP_MS}ms` : undefined,
             };
             return (
               <button
@@ -339,6 +395,11 @@ export function HoneycombSpell({ data, update, onExit }: { data: AppData; update
               </button>
             );
           })}
+        {line.length > 1 && (
+          <svg className={`spell-line ${lineState}`} width={box.w} height={box.h} aria-hidden="true">
+            <polyline points={points} strokeWidth={Math.max(4, size * 0.2)} />
+          </svg>
+        )}
       </div>
 
       <div className="bee-foot">

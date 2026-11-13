@@ -1851,6 +1851,8 @@ select {
   line-height: 1;
   cursor: pointer;
   clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  /* The letter changes colour with the fill, so it never vanishes while the fill fades. */
+  transition: color 0.12s ease;
 }
 
 .spell-cell::after {
@@ -1879,6 +1881,56 @@ select {
 
 .spell-cell.is-picked:active {
   --cell-fill: var(--accent);
+}
+
+/* A new comb: its letters fade in, so it is never taken for the last one. */
+.spell-cell {
+  animation: spell-letters 0.15s ease;
+}
+
+@keyframes spell-letters {
+  from {
+    color: transparent;
+  }
+}
+
+/* A word spelled: its cells pop one after another along the path. */
+.spell-cell.is-pop {
+  animation: spell-pop 0.3s ease both;
+}
+
+@keyframes spell-pop {
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+.spell-comb.is-shaking {
+  animation: shake 0.3s ease;
+}
+
+/* The line through the cells traced: over the comb, faint enough to read the letters through. */
+.spell-line {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.spell-line polyline {
+  fill: none;
+  stroke: var(--accent-text);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.45;
+}
+
+.spell-line.is-wrong polyline {
+  stroke: var(--no);
+}
+
+.spell-line.is-right polyline {
+  stroke: var(--known);
 }
 
 .spell-tries {
