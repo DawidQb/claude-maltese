@@ -11,6 +11,7 @@ import {
   pickLane,
   REVEAL_MS,
   spawnDue,
+  SURGE,
   surge,
   WAVE_PAUSE_MS,
   waveSpec,
@@ -19,11 +20,12 @@ import {
 } from '../../lib/hive';
 import { similarity } from '../../lib/letters';
 import type { Direction } from '../../lib/srs';
-import { wakeSound } from '../../lib/sound';
+import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face, TranslationLines } from '../Cards';
 import { DIRECTION_LABEL } from '../Home';
+import { beeEye, drawBee, readColors, type Colors } from './beeArt';
 import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
 
 /** A wrong pair shows red for this long. */
@@ -37,6 +39,35 @@ const LANE_GAP_PX = 12;
 const MAX_STEP_MS = 50;
 /** Height assumed for a word that has not been measured yet. */
 const WORD_HEIGHT_GUESS = 56;
+
+/* Effects. None of them changes the rules: a hit counts at the tap, the rest is decoration. */
+/** The laser beams show this long; then the word bursts and is gone. */
+const BEAM_MS = 180;
+/** Beam core width by the run of hits: from 3 in a row thicker, from 6 thicker still (and a higher zap). */
+const BEAM = { width: 1.5, run3: 2.5, run6: 3.5, glow: 4, highPitch: 1.3 };
+/** The chip of a word just shot shows green this long before a new chip takes its slot. */
+const HIT_CHIP_MS = 300;
+/** A surge slides the words down over this long instead of jumping. */
+const SURGE_SLIDE_MS = 250;
+/** The field shakes this long after a wrong pair. */
+const SHAKE_MS = 250;
+/** A honey cell lost flashes red, one won back glows, for this long. */
+const HONEY_FX_MS = 600;
+const BEE_RADIUS = 15;
+/** How quickly the bee turns towards its target: the share of the way per ms. */
+const BEE_TURN = 1 / 120;
+const MAX_PARTICLES = 80;
+const PARTICLE_GRAVITY = 600;
+/** Dots thrown when a word is shot (honey-coloured) and when a honey cell is lost (red). */
+const BURSTS = {
+  zap: { count: 14, speed: 220, life: 520, r: 3 },
+  puff: { count: 10, speed: 110, life: 420, r: 3.5 },
+};
+/** Vibration on a wrong pair and on a word reaching the hive, in ms. */
+const BUZZ = { wrong: 30, land: 120 };
+
+/** Eases from 0 to 1, gently at both ends. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
 
 type FieldPhase = 'between' | 'playing' | 'reveal' | 'over';
 
@@ -66,17 +97,38 @@ interface Game {
   wrong: { word: number; chip: string; until: number } | null;
   /** The word that reached the hive, shown while the field stands still. */
   reveal: Word | null;
+  /** Words just shot: no longer in play, still drawn while the beams reach them. */
+  zapped: { inv: Invader; until: number; width: number }[];
+  /** Chips of words just shot, green until `until`, then replaced. */
+  hitChips: { id: string; until: number }[];
+  /** The last surge: when, and which words it moved, so they can slide. */
+  surged: { at: number; ids: Set<number> };
+  /** A honey cell lost or won back, for its effect. */
+  honeyFx: { cell: number; lost: boolean; at: number } | null;
 }
 
 interface FieldProps {
   pool: Word[];
   dir: Direction;
   show: ShowLang;
+  /** Sound and vibration on. */
+  sound: boolean;
   onHit: () => void;
   /** A wrong pair (`chosen` is the chip picked) or a word that reached the hive (`chosen` null). */
   onMiss: (word: Word, chosen: Word | null) => void;
   onStatus: (status: { honey: number; wave: number }) => void;
   onOver: () => void;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  born: number;
+  life: number;
+  color: string;
+  r: number;
 }
 
 /** One side of a word, as it is shown on a falling word or a chip. */
@@ -90,18 +142,32 @@ function Side({ word, maltese, show }: { word: Word; maltese: boolean; show: Sho
   );
 }
 
+/** A hexagon with flat sides left and right (pointy top), as a path. */
+function hexPath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath();
+  for (let k = 0; k < 6; k++) {
+    const a = Math.PI / 6 + (k * Math.PI) / 3;
+    ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
+  }
+  ctx.closePath();
+}
+
 /** The field, the tray and the game loop. One run per mount. */
-function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldProps) {
+function HiveField({ pool, dir, show, sound, onHit, onMiss, onStatus, onOver }: FieldProps) {
   const [stream] = useState(() => new WordStream(pool));
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   const cb = useRef({ onHit, onMiss, onStatus, onOver });
   cb.current = { onHit, onMiss, onStatus, onOver };
+  const soundOn = useRef(sound);
+  soundOn.current = sound;
 
   const fieldRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseRef = useRef<HTMLDivElement>(null);
-  /** The button of each word on the field, and its measured height. */
-  const els = useRef(new Map<number, HTMLButtonElement>());
+  /** The element of each word on the field, and its measured height. */
+  const els = useRef(new Map<number, HTMLElement>());
   const heights = useRef(new Map<number, number>());
+  const motion = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const game = useRef<Game>(null as unknown as Game);
   if (!game.current) {
@@ -123,25 +189,37 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
       choice: { word: null, chip: null },
       wrong: null,
       reveal: null,
+      zapped: [],
+      hitChips: [],
+      surged: { at: -Infinity, ids: new Set() },
+      honeyFx: null,
     };
   }
 
+  /* ---------- geometry ---------- */
+
+  const fieldWidth = () => fieldRef.current?.clientWidth ?? 0;
   /** The px the words fall through, from the top of the field to the top of the hive. */
   const fallHeight = () => (fieldRef.current?.clientHeight ?? 0) - (baseRef.current?.offsetHeight ?? 0);
-  const lanes = () => laneCount(fieldRef.current?.clientWidth ?? 0);
+  const lanes = () => laneCount(fieldWidth());
+  /** Where a word is drawn: its lane's centre, and its top edge, sliding after a surge. */
+  const wordBox = (inv: Invader) => {
+    const g = game.current;
+    const n = lanes();
+    const h = heights.current.get(inv.id) ?? WORD_HEIGHT_GUESS;
+    const t = (g.clock - g.surged.at) / SURGE_SLIDE_MS;
+    const lag = !motion.current && t < 1 && g.surged.ids.has(inv.id) ? SURGE * (1 - smooth(t)) : 0;
+    return { x: ((Math.min(inv.lane, n - 1) + 0.5) / n) * fieldWidth(), top: (inv.y - lag) * fallHeight() - h, h };
+  };
 
-  /** Writes every word's position straight to its button. */
+  /** Writes every word's position straight to its element. */
   const place = () => {
-    const fall = fallHeight();
-    for (const inv of game.current.invaders) {
+    const g = game.current;
+    for (const inv of [...g.invaders, ...g.zapped.map((z) => z.inv)]) {
       const el = els.current.get(inv.id);
       if (!el) continue;
-      let h = heights.current.get(inv.id);
-      if (h === undefined) {
-        h = el.offsetHeight;
-        heights.current.set(inv.id, h);
-      }
-      el.style.transform = `translate(-50%, ${Math.round(inv.y * fall - h)}px)`;
+      if (!heights.current.has(inv.id)) heights.current.set(inv.id, el.offsetHeight);
+      el.style.transform = `translate(-50%, ${Math.round(wordBox(inv).top)}px)`;
     }
   };
 
@@ -159,12 +237,92 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
     if (g.choice.chip === word.id) g.choice = { ...g.choice, chip: null };
   };
 
+  /** A sound, and with it a buzz on phones that can; both off with the sound switch. */
+  const feedback = (name: Sound, buzz = 0, pitch = 1) => {
+    if (!soundOn.current) return;
+    playSound(name, pitch);
+    if (buzz) navigator.vibrate?.(buzz);
+  };
+
+  /** Set by the loop: fires at a word just shot, and shakes the field after a wrong pair. */
+  const fireRef = useRef<(inv: Invader) => void>(() => {});
+  const wrongRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     const g = game.current;
+    const field = fieldRef.current!;
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
+    let colors: Colors = readColors();
+    let particles: Particle[] = [];
+    /** Which way the bee faces and how far its nose is tilted; it turns smoothly towards its target. */
+    const bee = { facing: 1 as 1 | -1, tilt: -0.3 };
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMotion = () => (motion.current = motionQuery.matches);
+    motionQuery.addEventListener('change', onMotion);
+    const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const onScheme = () => (colors = readColors());
+    scheme.addEventListener('change', onScheme);
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(field.clientWidth * dpr);
+      canvas.height = Math.round(field.clientHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(field);
+    resize();
+
+    /* ---------- the hive strip ---------- */
+
+    const baseHeight = () => baseRef.current?.offsetHeight ?? 0;
+    const beeAt = () => {
+      const top = fallHeight();
+      const bob = motion.current ? 0 : Math.sin(g.clock / 420) * 3;
+      return { x: fieldWidth() / 2, y: top + baseHeight() / 2 + bob };
+    };
+    /** The three honey cells, left of the bee; full ones first. */
+    const honeyCells = () => {
+      const r = Math.min(15, baseHeight() * 0.21);
+      const cx = fieldWidth() * 0.22;
+      const y = fallHeight() + baseHeight() / 2;
+      return Array.from({ length: HONEY }, (_, i) => ({ x: cx + (i - 1) * r * Math.sqrt(3), y, r }));
+    };
+
+    const burst = (kind: keyof typeof BURSTS, x: number, y: number, color: string) => {
+      if (motion.current) return;
+      const spec = BURSTS[kind];
+      for (let i = 0; i < spec.count; i++) {
+        const speed = spec.speed * (0.4 + 0.6 * Math.random());
+        const angle = Math.random() * Math.PI * 2;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - spec.speed * 0.3,
+          born: g.clock,
+          life: spec.life * (0.7 + 0.3 * Math.random()),
+          color,
+          r: spec.r * (0.7 + 0.5 * Math.random()),
+        });
+      }
+      if (particles.length > MAX_PARTICLES) particles = particles.slice(-MAX_PARTICLES);
+    };
+
+    /* ---------- rules ---------- */
 
     /** The banner for the next wave; its words start coming when the banner goes. */
     const nextWave = () => {
-      if (g.wave > 0) g.honey = honeyAfterWave(g.honey, g.landedThisWave);
+      if (g.wave > 0) {
+        const before = g.honey;
+        g.honey = honeyAfterWave(g.honey, g.landedThisWave);
+        if (g.honey > before) {
+          g.honeyFx = { cell: g.honey - 1, lost: false, at: g.clock };
+          feedback('pollen');
+        }
+      }
       g.wave += 1;
       g.spec = waveSpec(g.wave);
       g.toSpawn = g.spec.words;
@@ -172,9 +330,11 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
       g.landedThisWave = 0;
       g.traySize = window.innerHeight < SHORT_SCREEN ? Math.min(SHORT_TRAY, g.spec.tray) : g.spec.tray;
       g.tray = fillTray([], [], pool, g.traySize);
+      g.hitChips = [];
       g.choice = { word: null, chip: null };
       g.phase = 'between';
       g.until = g.clock + WAVE_PAUSE_MS;
+      feedback('wave');
       cb.current.onStatus({ honey: g.honey, wave: g.wave });
     };
 
@@ -206,7 +366,11 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
         dropChip(g, inv.word);
         if (g.choice.word === inv.id) g.choice = { ...g.choice, word: null };
         cb.current.onMiss(inv.word, null);
+        const cell = honeyCells()[g.honey];
+        if (cell) burst('puff', cell.x, cell.y, colors.bad);
       }
+      g.honeyFx = { cell: g.honey, lost: true, at: g.clock };
+      feedback('wrong', BUZZ.land);
       refill(g, g.invaders.map((i) => i.word));
       g.reveal = landed[0].word;
       g.phase = 'reveal';
@@ -222,6 +386,24 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
         g.wrong = null;
         changed = true;
       }
+      // Words shot: once the beams have reached them, they burst and are gone.
+      for (const z of g.zapped.filter((z) => g.clock >= z.until)) {
+        const box = wordBox(z.inv);
+        burst('zap', box.x, box.top + box.h / 2, colors.honey);
+        els.current.delete(z.inv.id);
+        heights.current.delete(z.inv.id);
+        changed = true;
+      }
+      g.zapped = g.zapped.filter((z) => g.clock < z.until);
+      // Their chips, once they have shown green, make way for new ones.
+      const done = g.hitChips.filter((c) => g.clock >= c.until);
+      if (done.length > 0) {
+        g.hitChips = g.hitChips.filter((c) => g.clock < c.until);
+        for (const c of done) g.tray = g.tray.map((w) => (w && w.id === c.id && !g.invaders.some((i) => i.word.id === w.id) ? null : w));
+        refill(g, g.invaders.map((i) => i.word));
+        changed = true;
+      }
+
       if (g.phase === 'between' || g.phase === 'reveal') {
         if (g.clock >= g.until) {
           g.reveal = null;
@@ -241,13 +423,139 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
           changed = true;
         } else if (spawnDue(g.spec, g.invaders, g.toSpawn, g.sinceSpawn)) {
           changed = spawn() || changed;
-        } else if (g.toSpawn === 0 && g.invaders.length === 0) {
+        } else if (g.toSpawn === 0 && g.invaders.length === 0 && g.zapped.length === 0) {
           nextWave();
           changed = true;
         }
       }
       if (changed) redraw();
     };
+
+    /* ---------- drawing ---------- */
+
+    /** The point the bee looks at: the word being beamed, the chosen word, or the lowest. */
+    const target = () => {
+      const z = g.zapped[g.zapped.length - 1]?.inv;
+      const chosen = g.invaders.find((i) => i.id === g.choice.word);
+      const lowest = g.invaders.reduce<Invader | null>((low, i) => (!low || i.y > low.y ? i : low), null);
+      const inv = z ?? chosen ?? lowest;
+      if (!inv) return null;
+      const box = wordBox(inv);
+      return { x: box.x, y: box.top + box.h / 2 };
+    };
+
+    /** Facing and tilt that point the bee's nose at (tx, ty). */
+    const aim = (tx: number, ty: number) => {
+      const b = beeAt();
+      const dx = tx - b.x;
+      return { facing: (dx >= 0 ? 1 : -1) as 1 | -1, tilt: Math.max(-1.25, Math.min(0.2, Math.atan2(ty - b.y, Math.abs(dx) + 1))) };
+    };
+
+    const turnBee = (dt: number) => {
+      const t = target();
+      const want = t ? aim(t.x, t.y) : { facing: bee.facing, tilt: -0.3 };
+      if (want.facing !== bee.facing || motion.current) {
+        bee.facing = want.facing;
+        bee.tilt = want.tilt;
+      } else {
+        bee.tilt += (want.tilt - bee.tilt) * Math.min(1, dt * BEE_TURN);
+      }
+    };
+
+    const drawHive = (w: number, top: number, h: number) => {
+      // Comb across the strip, faint, with the hive's edge in honey.
+      ctx.fillStyle = colors.wall;
+      ctx.fillRect(0, top, w, h);
+      const r = 11;
+      ctx.strokeStyle = colors.line;
+      ctx.lineWidth = 1;
+      for (let row = 0; row * r * 1.5 < h + r; row++) {
+        const y = top + row * r * 1.5 + r * 0.5;
+        const shift = row % 2 ? (r * Math.sqrt(3)) / 2 : 0;
+        for (let x = shift; x < w + r; x += r * Math.sqrt(3)) {
+          hexPath(ctx, x, y, r);
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = colors.honey;
+      ctx.fillRect(0, top, w, 2);
+
+      // The honey cells: full, empty, and the one just lost or won back.
+      const fx = g.honeyFx && g.clock - g.honeyFx.at < HONEY_FX_MS ? g.honeyFx : null;
+      honeyCells().forEach((c, i) => {
+        if (fx && fx.cell === i && !fx.lost) {
+          // Glows as it fills.
+          const k = 1 - (g.clock - fx.at) / HONEY_FX_MS;
+          ctx.globalAlpha = 0.45 * k;
+          ctx.fillStyle = colors.honey;
+          hexPath(ctx, c.x, c.y, c.r + 6 * k);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        hexPath(ctx, c.x, c.y, c.r);
+        ctx.fillStyle = i < g.honey ? colors.honey : colors.bg;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = fx && fx.cell === i && fx.lost ? colors.bad : i < g.honey ? colors.honey : colors.line;
+        ctx.stroke();
+      });
+    };
+
+    const drawBeams = (eye: { x: number; y: number }) => {
+      for (const z of g.zapped) {
+        const box = wordBox(z.inv);
+        const tx = box.x;
+        const ty = box.top + box.h / 2;
+        const len = Math.hypot(tx - eye.x, ty - eye.y) || 1;
+        // Two beams, one from each eye, a little apart where they leave the bee.
+        const nx = (-(ty - eye.y) / len) * 2.5;
+        const ny = ((tx - eye.x) / len) * 2.5;
+        const fade = Math.max(0, 1 - (g.clock - (z.until - BEAM_MS)) / BEAM_MS);
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(eye.x + side * nx, eye.y + side * ny);
+          ctx.lineTo(tx, ty);
+          ctx.lineCap = 'round';
+          ctx.globalAlpha = 0.35 * (0.4 + 0.6 * fade);
+          ctx.strokeStyle = colors.honey;
+          ctx.lineWidth = z.width * BEAM.glow;
+          ctx.stroke();
+          ctx.globalAlpha = 0.5 + 0.5 * fade;
+          ctx.strokeStyle = colors.bad;
+          ctx.lineWidth = z.width;
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    };
+
+    const draw = () => {
+      const w = fieldWidth();
+      const fall = fallHeight();
+      ctx.clearRect(0, 0, w, field.clientHeight);
+      drawHive(w, fall, baseHeight());
+      const b = beeAt();
+      const eye = beeEye(b.x, b.y, BEE_RADIUS, bee.facing, bee.tilt);
+      drawBeams(eye);
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, 1 - (g.clock - p.born) / p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      drawBee(ctx, b.x, b.y, BEE_RADIUS, bee.facing, bee.tilt, motion.current ? 0 : g.clock, colors.muted);
+      if (g.zapped.length > 0) {
+        // The eyes glow while firing.
+        ctx.beginPath();
+        ctx.arc(eye.x, eye.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = colors.bad;
+        ctx.fill();
+      }
+    };
+
+    /* ---------- loop ---------- */
 
     let frame = 0;
     let last = 0;
@@ -257,8 +565,35 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
       const dt = document.hidden || !last ? 0 : Math.min(now - last, MAX_STEP_MS);
       last = now;
       step(dt);
+      particles = particles.filter((p) => g.clock - p.born < p.life);
+      for (const p of particles) {
+        p.vy += PARTICLE_GRAVITY * (dt / 1000);
+        p.x += p.vx * (dt / 1000);
+        p.y += p.vy * (dt / 1000);
+      }
+      turnBee(dt);
       place();
+      draw();
     };
+
+    /** Fires the lasers at a word just shot: the bee snaps round to face it. */
+    fireRef.current = (inv: Invader) => {
+      const box = wordBox(inv);
+      Object.assign(bee, aim(box.x, box.top + box.h / 2));
+      const width = g.run >= 6 ? BEAM.run6 : g.run >= 3 ? BEAM.run3 : BEAM.width;
+      g.zapped.push({ inv, until: g.clock + BEAM_MS, width });
+      feedback('laser', 0, g.run >= 6 ? BEAM.highPitch : 1);
+    };
+    wrongRef.current = () => {
+      feedback('bump', BUZZ.wrong);
+      if (!motion.current) {
+        field.animate(
+          [{ transform: 'translateX(0)' }, { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(0)' }],
+          { duration: SHAKE_MS },
+        );
+      }
+    };
+
     // Effects run twice in development; the first wave is set up only once.
     if (g.wave === 0) nextWave();
     redraw();
@@ -278,14 +613,22 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
             invaders: g.invaders.map((i) => ({ id: i.id, word: i.word.id, lane: i.lane, y: i.y })),
             tray: g.tray.map((w) => w?.id ?? null),
             choice: g.choice,
+            zapped: g.zapped.length,
+            particles: particles.length,
+            bee: { ...bee, ...beeAt() },
           };
         },
       };
     }
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      scheme.removeEventListener('change', onScheme);
+      motionQuery.removeEventListener('change', onMotion);
+    };
   }, [pool, stream]);
 
-  // New buttons get their position before they are painted.
+  // New elements get their position before they are painted.
   useLayoutEffect(place);
 
   const pick = (side: 'word' | 'chip', id: number | string) => {
@@ -302,40 +645,49 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
     const inv = g.invaders.find((i) => i.id === next.word);
     const chip = g.tray.find((w) => w?.id === next.chip);
     if (inv && chip && inv.word.id === chip.id) {
+      // The hit counts now; the beams and the burst follow.
       g.invaders = g.invaders.filter((i) => i !== inv);
-      els.current.delete(inv.id);
-      heights.current.delete(inv.id);
       g.run += 1;
-      dropChip(g, inv.word);
-      refill(g, g.invaders.map((i) => i.word));
+      g.hitChips.push({ id: chip.id, until: g.clock + HIT_CHIP_MS });
+      fireRef.current(inv);
       cb.current.onHit();
     } else if (inv && chip) {
       g.run = 0;
       surge(g.invaders);
+      g.surged = { at: g.clock, ids: new Set(g.invaders.map((i) => i.id)) };
       g.wrong = { word: inv.id, chip: chip.id, until: g.clock + WRONG_FLASH_MS };
+      wrongRef.current();
       cb.current.onMiss(inv.word, chip);
     }
     redraw();
   };
 
   const g = game.current;
-  const laneTotal = lanes();
+  const laneTotal = lanes() || 2;
   const askMaltese = dir === 'mt2x';
+  const style = (inv: Invader) => ({
+    left: `${((Math.min(inv.lane, laneTotal - 1) + 0.5) / laneTotal) * 100}%`,
+    maxWidth: `calc(${100 / laneTotal}% - 12px)`,
+  });
+  const keep = (id: number) => (el: HTMLElement | null) => {
+    if (el) els.current.set(id, el);
+  };
 
   return (
     <>
       <div ref={fieldRef} className="hive-field">
+        <canvas ref={canvasRef} aria-hidden="true" />
+        <div ref={baseRef} className="hive-base" aria-hidden="true" />
+
         {g.invaders.map((inv) => {
           const chosen = g.choice.word === inv.id;
           const wrong = g.wrong?.word === inv.id;
           return (
             <button
               key={inv.id}
-              ref={(el) => {
-                if (el) els.current.set(inv.id, el);
-              }}
+              ref={keep(inv.id)}
               className={`hive-word${chosen ? ' is-picked' : ''}${wrong ? ' is-wrong' : ''}`}
-              style={{ left: `${((Math.min(inv.lane, laneTotal - 1) + 0.5) / laneTotal) * 100}%`, maxWidth: `calc(${100 / laneTotal}% - 12px)` }}
+              style={style(inv)}
               data-word={inv.word.id}
               aria-pressed={chosen}
               onClick={() => pick('word', inv.id)}
@@ -344,8 +696,11 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
             </button>
           );
         })}
-
-        <div ref={baseRef} className="hive-base" aria-hidden="true" />
+        {g.zapped.map(({ inv }) => (
+          <div key={inv.id} ref={keep(inv.id)} className="hive-word is-zapped" style={style(inv)} aria-hidden="true">
+            <Side word={inv.word} maltese={askMaltese} show={show} />
+          </div>
+        ))}
 
         {g.phase === 'between' && (
           <div className="bee-overlay hive-banner" role="status">
@@ -364,17 +719,19 @@ function HiveField({ pool, dir, show, onHit, onMiss, onStatus, onOver }: FieldPr
         )}
       </div>
 
-      <div className={`hive-tray hive-tray-${g.traySize}`} role="group" aria-label="Answers">
+      <div className="hive-tray" role="group" aria-label="Answers">
         {g.tray.map((w, k) => {
           if (!w) return <span key={`empty-${k}`} className="tile-btn hive-chip is-empty" aria-hidden="true" />;
+          const hit = g.hitChips.some((c) => c.id === w.id);
           const chosen = g.choice.chip === w.id;
           const wrong = g.wrong?.chip === w.id;
           return (
             <button
               key={`${k}-${w.id}`}
-              className={`tile-btn hive-chip${chosen ? ' is-picked' : ''}${wrong ? ' is-wrong' : ''}`}
+              className={`tile-btn hive-chip${chosen ? ' is-picked' : ''}${wrong ? ' is-wrong' : ''}${hit ? ' is-right' : ''}`}
               data-word={w.id}
               aria-pressed={chosen}
+              disabled={hit}
               onClick={() => pick('chip', w.id)}
             >
               <Side word={w} maltese={!askMaltese} show={show} />
@@ -471,6 +828,7 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
               setTally((t) => ({ ...t, bad: t.bad + 1 }));
               setMistakes((list) => [...list, { word, chosen }]);
             }}
+            sound={sound}
             onStatus={setStatus}
             onOver={finish}
           />

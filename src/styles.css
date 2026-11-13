@@ -1237,13 +1237,34 @@ select {
   background: color-mix(in srgb, var(--no) 14%, var(--surface));
 }
 
-/* The hive: the strip at the bottom of the field that the words must not reach. */
+/* The hive: the strip at the bottom of the field that the words must not reach. The canvas draws it. */
 .hive-base {
   position: absolute;
   inset: auto 0 0;
   height: 96px;
-  border-top: 2px solid var(--accent);
-  background: var(--surface-2);
+}
+
+/* The canvas lies under the words: the hive, the bee, the beams and the sparks. */
+.hive-field canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A word just shot, while the beams reach it. */
+.hive-word.is-zapped {
+  border-color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 45%, var(--surface));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
+  pointer-events: none;
+}
+
+.hive-chip.is-right {
+  border-color: var(--known);
+  background: color-mix(in srgb, var(--known) 30%, var(--surface));
+  cursor: default;
+  transition: none;
 }
 
 .hive-tray {

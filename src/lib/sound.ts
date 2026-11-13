@@ -3,7 +3,7 @@
  * Browsers only allow sound after the player has pressed something, so the audio is started
  * by `wakeSound()`, called from a press; until then `playSound()` does nothing.
  */
-export type Sound = 'right' | 'wrong' | 'bump' | 'pollen';
+export type Sound = 'right' | 'wrong' | 'bump' | 'pollen' | 'laser' | 'wave';
 
 let audio: AudioContext | null = null;
 
@@ -34,7 +34,8 @@ function tone(ctx: AudioContext, type: OscillatorType, from: number, to: number,
   osc.stop(start + length + 0.02);
 }
 
-export function playSound(sound: Sound): void {
+/** Plays a sound; `pitch` raises (above 1) or lowers it, for the laser on a long run of hits. */
+export function playSound(sound: Sound, pitch = 1): void {
   if (!audio || audio.state !== 'running') return;
   switch (sound) {
     case 'right':
@@ -53,6 +54,16 @@ export function playSound(sound: Sound): void {
     case 'pollen':
       // A short blip.
       tone(audio, 'sine', 1200, 1800, 0, 0.07, 0.1);
+      break;
+    case 'laser':
+      // A quick falling zap.
+      tone(audio, 'sawtooth', 1800 * pitch, 300 * pitch, 0, 0.12, 0.08);
+      break;
+    case 'wave':
+      // Three rising notes.
+      tone(audio, 'triangle', 523, 523, 0, 0.12, 0.15);
+      tone(audio, 'triangle', 659, 659, 0.1, 0.12, 0.15);
+      tone(audio, 'triangle', 784, 784, 0.2, 0.2, 0.15);
       break;
   }
 }
