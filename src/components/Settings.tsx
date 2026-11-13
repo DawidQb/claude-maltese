@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
+import type { Account as AccountState } from '../lib/account';
 import { isInstalled, useInstallPrompt } from '../lib/install';
 import { toISODate } from '../lib/srs';
 import { emptyData, sanitize, type AppData, type ShowLang, type Update } from '../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Include } from '../lib/words';
+import { Account } from './Account';
 
 const SHOW_OPTIONS: { value: ShowLang; label: string }[] = [
   { value: 'both', label: 'Polish + English' },
@@ -12,12 +14,13 @@ const SHOW_OPTIONS: { value: ShowLang; label: string }[] = [
 
 const NEW_PER_DAY = [0, 5, 10, 15, 20, 30];
 
-export function Settings({ data, update }: { data: AppData; update: Update }) {
+export function Settings({ data, update, account }: { data: AppData; update: Update; account: AccountState }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const learned = Object.keys(data.cards).length;
   const install = useInstallPrompt();
   const [installed] = useState(isInstalled);
+  const signedIn = account.email !== null;
 
   /** Switches a kind of card on or off. If that empties the chosen topic, falls back to all topics. */
   const include = (patch: Include) =>
@@ -43,6 +46,7 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
       const parsed = sanitize(JSON.parse(await file.text()));
       if (!parsed) throw new Error('not app data');
       update(() => parsed);
+      account.replace(parsed);
       setMessage(`Imported progress for ${Object.keys(parsed.cards).length} cards.`);
     } catch {
       setMessage('That file is not a Naħla progress export.');
@@ -50,13 +54,24 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
   };
 
   const reset = () => {
-    if (!window.confirm('Delete all progress in both directions? This cannot be undone.')) return;
+    const where = signedIn ? 'on every device signed in to your account' : 'in both directions';
+    if (!window.confirm(`Delete all progress ${where}? This cannot be undone.`)) return;
     update((d) => ({ ...emptyData(), settings: d.settings }));
+    account.replace(emptyData());
     setMessage('Progress reset.');
   };
 
   return (
     <div className="stack">
+      {account.enabled && (
+        <section>
+          <h2 className="eyebrow">Account</h2>
+          <div className="panel">
+            <Account account={account} />
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="eyebrow">Cards</h2>
         <div className="panel">
@@ -176,8 +191,9 @@ export function Settings({ data, update }: { data: AppData; update: Update }) {
         <h2 className="eyebrow">Progress</h2>
         <div className="panel">
           <p className="muted">
-            Progress is saved in this browser only ({learned} {learned === 1 ? 'card' : 'cards'} so far). Export it to move to
-            another device.
+            {signedIn
+              ? `Progress is saved on this device and in your account (${learned} ${learned === 1 ? 'card' : 'cards'} so far). Import and Reset change it on every device.`
+              : `Progress is saved in this browser only (${learned} ${learned === 1 ? 'card' : 'cards'} so far). ${account.enabled ? 'Sign in above, or export it,' : 'Export it'} to move to another device.`}
           </p>
           <div className="row">
             <button className="btn btn-secondary" onClick={exportProgress}>

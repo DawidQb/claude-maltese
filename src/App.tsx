@@ -8,6 +8,7 @@ import { Home } from './components/Home';
 import { Settings } from './components/Settings';
 import { Study } from './components/Study';
 import { WordList } from './components/WordList';
+import { useAccount } from './lib/account';
 import { toISODate } from './lib/srs';
 import { useStore } from './lib/store';
 
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function App() {
   const [data, update] = useStore();
+  const account = useAccount(data, update);
   const [tab, setTab] = useState<Tab>('home');
   // A study session or a game takes over the whole screen.
   const [activity, setActivity] = useState<'study' | GameId | null>(null);
@@ -53,7 +55,7 @@ export function App() {
         {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setActivity('study')} />}
         {tab === 'games' && <Games data={data} update={update} onPlay={setActivity} />}
         {tab === 'words' && <WordList data={data} />}
-        {tab === 'settings' && <Settings data={data} update={update} />}
+        {tab === 'settings' && <Settings data={data} update={update} account={account} />}
       </main>
 
       <nav className="tabs" aria-label="Sections">
