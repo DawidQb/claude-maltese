@@ -14,7 +14,8 @@ export function Games({ data, update, onPlay }: Props) {
   const best = data.games.speedBest;
   const set = (patch: Partial<Settings>) => update((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
 
-  const games: { id: GameId; name: string; text: string; detail?: string }[] = [
+  /** `action` names the button: "Play" unless the entry is not a game. */
+  const games: { id: GameId; name: string; text: string; detail?: string; action?: string }[] = [
     {
       id: 'bee',
       name: 'Bouncy bee',
@@ -71,7 +72,9 @@ export function Games({ data, update, onPlay }: Props) {
     {
       id: 'meadow',
       name: 'Watch the flowers',
-      text: 'Bees fly about the flowers, and now and then one brings a word and a flower shows what it means.',
+      text: 'Not a game. Bees fly about the flowers, and now and then one brings a word and a flower shows what it means. Nothing to answer, nothing counted.',
+      detail: 'Mostly words you are still learning',
+      action: 'Watch',
     },
   ];
 
@@ -98,8 +101,8 @@ export function Games({ data, update, onPlay }: Props) {
               <p className="muted">{g.text}</p>
               {g.detail && <p className="game-detail">{g.detail}</p>}
             </div>
-            <button className="btn btn-primary" onClick={() => onPlay(g.id)} aria-label={`Play ${g.name}`}>
-              Play
+            <button className="btn btn-primary" onClick={() => onPlay(g.id)} aria-label={g.action ? g.name : `Play ${g.name}`}>
+              {g.action ?? 'Play'}
             </button>
           </article>
         ))}
