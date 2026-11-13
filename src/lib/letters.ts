@@ -10,11 +10,11 @@ const LAYOUT = [
   ...['o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'ż', 'z', '-', "'", ' '],
 ];
 
-/** Letters offered as decoys: the plain alphabet, without accented vowels or punctuation. */
-const DECOYS = LAYOUT.filter((k) => !['à', 'è', '-', "'", ' '].includes(k));
+/** The plain alphabet, without accented vowels or punctuation: the letters offered as decoys. */
+export const ALPHABET = LAYOUT.filter((k) => !['à', 'è', '-', "'", ' '].includes(k));
 
 /** Letters that are easy to mix up. When a word has one, the others make the best decoys. */
-const LOOKALIKES = [
+export const LOOKALIKES = [
   ['h', 'ħ', 'għ'],
   ['g', 'ġ', 'għ'],
   ['z', 'ż'],
@@ -99,7 +99,7 @@ export function letterKeys(word: string, rng: Rng = Math.random): string[] {
   };
   const needed = [...keys];
   add(shuffle(LOOKALIKES.filter((group) => group.some((k) => needed.includes(k))).flat(), rng));
-  add(shuffle(DECOYS, rng));
+  add(shuffle(ALPHABET, rng));
 
   const position = (k: string) => (LAYOUT.includes(k) ? LAYOUT.indexOf(k) : LAYOUT.length);
   return [...keys].sort((a, b) => position(a) - position(b));

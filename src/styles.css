@@ -1794,6 +1794,150 @@ select {
   }
 }
 
+/* Honeycomb spell: the meaning, the letters so far, and a comb of nineteen pointy-top cells. */
+.spell-meaning {
+  flex: none;
+  min-height: 0;
+  max-height: 96px;
+  gap: 0;
+  padding: 10px 16px;
+}
+
+.spell-meaning .translations {
+  gap: 2px;
+}
+
+.spell-meaning .translations dd {
+  font-size: 1.2rem;
+}
+
+.spell-display {
+  min-height: 44px;
+  letter-spacing: 0.04em;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.spell-display.is-wrong {
+  border-color: var(--no);
+  background: color-mix(in srgb, var(--no) 12%, var(--surface));
+}
+
+.spell-display.is-right {
+  border-color: var(--known);
+  background: color-mix(in srgb, var(--known) 14%, var(--surface));
+}
+
+/* The comb takes the room left; the game places the cells and follows the finger across it. */
+.spell-comb {
+  position: relative;
+  flex: 1;
+  min-height: 230px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.spell-cell {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  /* The letter changes colour with the fill, so it never vanishes while the fill fades. */
+  transition: color 0.12s ease;
+}
+
+.spell-cell::after {
+  inset: 2px 2px 4px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+/* The marked first cell: a ring of honey. */
+.spell-cell.is-first {
+  --cell-edge: var(--accent);
+}
+
+.spell-cell.is-first::after {
+  inset: 5px 5px 7px;
+}
+
+.spell-cell.is-picked {
+  --cell-edge: var(--accent-text);
+  --cell-fill: var(--accent);
+  color: var(--accent-ink);
+}
+
+.spell-cell:active {
+  --cell-fill: var(--surface);
+}
+
+.spell-cell.is-picked:active {
+  --cell-fill: var(--accent);
+}
+
+/* A new comb: its letters fade in, so it is never taken for the last one. */
+.spell-cell {
+  animation: spell-letters 0.15s ease;
+}
+
+@keyframes spell-letters {
+  from {
+    color: transparent;
+  }
+}
+
+/* A word spelled: its cells pop one after another along the path. */
+.spell-cell.is-pop {
+  animation: spell-pop 0.3s ease both;
+}
+
+@keyframes spell-pop {
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+.spell-comb.is-shaking {
+  animation: shake 0.3s ease;
+}
+
+/* The line through the cells traced: over the comb, faint enough to read the letters through. */
+.spell-line {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.spell-line polyline {
+  fill: none;
+  stroke: var(--accent-text);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.45;
+}
+
+.spell-line.is-wrong polyline {
+  stroke: var(--no);
+}
+
+.spell-line.is-right polyline {
+  stroke: var(--known);
+}
+
+.spell-tries {
+  align-self: center;
+  margin-left: 4px;
+}
+
 /* ---------- Word list ---------- */
 
 .filters {

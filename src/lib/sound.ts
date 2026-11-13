@@ -34,7 +34,7 @@ function tone(ctx: AudioContext, type: OscillatorType, from: number, to: number,
   osc.stop(start + length + 0.02);
 }
 
-/** Plays a sound; `pitch` raises (above 1) or lowers it, for the laser on a long run of hits. */
+/** Plays a sound; `pitch` raises (above 1) or lowers it: the laser on a long run of hits, the blip of each letter traced. */
 export function playSound(sound: Sound, pitch = 1): void {
   if (!audio || audio.state !== 'running') return;
   switch (sound) {
@@ -53,7 +53,7 @@ export function playSound(sound: Sound, pitch = 1): void {
       break;
     case 'pollen':
       // A short blip.
-      tone(audio, 'sine', 1200, 1800, 0, 0.07, 0.1);
+      tone(audio, 'sine', 1200 * pitch, 1800 * pitch, 0, 0.07, 0.1);
       break;
     case 'laser':
       // A quick falling zap.

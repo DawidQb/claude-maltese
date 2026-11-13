@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { BeeSwarm } from './components/BeeSwarm';
 import { Games, type GameId } from './components/Games';
 import { BusyBee } from './components/games/BusyBee';
+import { HoneycombSpell } from './components/games/HoneycombSpell';
 import { InfiniteTyping } from './components/games/InfiniteTyping';
 import { MatchPairs } from './components/games/MatchPairs';
 import { ProtectHive } from './components/games/ProtectHive';
@@ -48,6 +49,7 @@ export function App() {
           {activity === 'hive' && <ProtectHive data={data} update={update} onExit={close} />}
           {activity === 'queen' && <QueensOrders data={data} update={update} onExit={close} />}
           {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
+          {activity === 'spell' && <HoneycombSpell data={data} update={update} onExit={close} />}
           {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
           {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}
         </div>
