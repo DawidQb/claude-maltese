@@ -14,9 +14,14 @@ export interface Account {
   status: SyncStatus;
   lastSynced: Date | null;
   error: string | null;
-  /** Emails a sign-in link and a six-digit code. */
-  sendCode(email: string): Promise<void>;
-  verifyCode(email: string, code: string): Promise<void>;
+  /** True after opening a password-reset link: the app should ask for a new password. */
+  recovering: boolean;
+  signIn(email: string, password: string): Promise<void>;
+  /** Creates the account. Resolves 'confirm' when the email address still has to be confirmed. */
+  signUp(email: string, password: string): Promise<'signed-in' | 'confirm'>;
+  /** Emails a link that opens the app ready to set a new password. */
+  sendPasswordReset(email: string): Promise<void>;
+  setPassword(password: string): Promise<void>;
   signOut(): Promise<void>;
   syncNow(): void;
   /** Makes `data` the account's progress on every device (Reset and Import). */
@@ -47,6 +52,30 @@ function saveMeta(meta: SyncMeta): void {
   }
 }
 
+/** Where links in emails lead back to: this page, without any query or hash. */
+function appUrl(): string {
+  return window.location.origin + window.location.pathname;
+}
+
+/** Supabase's error in words for the app. Never names whether an account exists. */
+export function authMessage(e: { code?: string; message?: string }): string {
+  switch (e.code) {
+    case 'invalid_credentials':
+      return 'Wrong email or password.';
+    case 'email_not_confirmed':
+      return 'Confirm your email address first: open the link in the email we sent you.';
+    case 'weak_password':
+      return e.message || 'Choose a stronger password.';
+    case 'same_password':
+      return 'The new password must differ from the old one.';
+    case 'over_email_send_rate_limit':
+    case 'over_request_rate_limit':
+      return 'Too many attempts. Wait a few minutes and try again.';
+    default:
+      return e.message || 'Something went wrong. Try again.';
+  }
+}
+
 interface User {
   id: string;
   email: string | null;
@@ -58,6 +87,7 @@ export function useAccount(data: AppData, update: Update): Account {
   const [status, setStatus] = useState<SyncStatus>('idle');
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState(false);
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -80,7 +110,9 @@ export function useAccount(data: AppData, update: Update): Account {
       if (cancelled) return;
       setUser(toUser(auth.session?.user));
       setReady(true);
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+        if (event === 'SIGNED_OUT') setRecovering(false);
         const next = toUser(session?.user);
         setUser((prev) => (prev?.id === next?.id && prev?.email === next?.email ? prev : next));
       });
@@ -155,19 +187,32 @@ export function useAccount(data: AppData, update: Update): Account {
     return () => clearTimeout(timer);
   }, [data, user, run]);
 
-  const sendCode = useCallback(async (email: string) => {
+  // Passwords are only passed through to Supabase Auth over HTTPS, which stores a bcrypt
+  // hash. The app never saves or logs them; the browser keeps only the session tokens.
+  const signIn = useCallback(async (email: string, password: string) => {
     const supabase = await getClient();
-    const { error: e } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
-    });
-    if (e) throw e;
+    const { error: e } = await supabase.auth.signInWithPassword({ email, password });
+    if (e) throw new Error(authMessage(e));
   }, []);
 
-  const verifyCode = useCallback(async (email: string, code: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const supabase = await getClient();
-    const { error: e } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
-    if (e) throw e;
+    const { data: res, error: e } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: appUrl() } });
+    if (e) throw new Error(authMessage(e));
+    return res.session ? 'signed-in' : 'confirm';
+  }, []);
+
+  const sendPasswordReset = useCallback(async (email: string) => {
+    const supabase = await getClient();
+    const { error: e } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: appUrl() });
+    if (e) throw new Error(authMessage(e));
+  }, []);
+
+  const setPassword = useCallback(async (password: string) => {
+    const supabase = await getClient();
+    const { error: e } = await supabase.auth.updateUser({ password });
+    if (e) throw new Error(authMessage(e));
+    setRecovering(false);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -188,8 +233,11 @@ export function useAccount(data: AppData, update: Update): Account {
     status,
     lastSynced,
     error,
-    sendCode,
-    verifyCode,
+    recovering,
+    signIn,
+    signUp,
+    sendPasswordReset,
+    setPassword,
     signOut,
     syncNow,
     replace,

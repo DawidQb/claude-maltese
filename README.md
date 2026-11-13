@@ -57,8 +57,11 @@ item instead:
 ## Accounts and sync (Supabase)
 
 The project holds three things: accounts (Supabase Auth), each account's progress, and the
-word deck (see above). Signing in is optional. It uses an emailed code (or the link in the same email) through
-Supabase Auth, and stores each account's progress as one row of the `progress` table.
+word deck (see above). Signing in is optional. Accounts use an email address and a password (Supabase Auth, which
+stores only a bcrypt hash; the app never saves or logs passwords, and the browser keeps only
+the session tokens). A new account confirms its address through a link in an email, and a
+forgotten password is reset the same way. Each account's progress is one row of the
+`progress` table.
 Settings are not synced; each device keeps its own.
 
 - Every device keeps working from local storage and syncs on sign-in, a few seconds after
@@ -79,9 +82,8 @@ Setting up a Supabase project:
    the progress table, the word tables, then the seed that loads the shipped deck.
 2. Authentication → URL Configuration: set Site URL to the GitHub Pages address and add it,
    plus `http://localhost:5173`, to Redirect URLs.
-3. Authentication → Email Templates → Magic Link: add `{{ .Token }}` to the message, so the
-   email carries a code as well as a link. An app installed on the home screen cannot catch
-   the link (it opens in the browser), so it signs in with the code.
+3. Authentication → Sign In / Providers → Email: keep "Confirm email" on, and set the
+   minimum password length to at least 8 (the app asks for 8).
 4. Put the project URL and its publishable key in `src/lib/supabase.ts`. Both are public;
    row-level security keeps each account's row private and the deck read-only. Never put a
    secret or `service_role` key in the app. With the key left empty, the Account section is
