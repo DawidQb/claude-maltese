@@ -1103,6 +1103,8 @@ select {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  /* Holding on is part of the game: no long-press menu on iPhone. */
+  -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
 

@@ -83,6 +83,38 @@ describe('flight', () => {
     expect(bee.y).toBeLessThan(y1);
   });
 
+  it('keeps climbing at a steady speed while held, and falls again once let go', () => {
+    const bee = launched(0);
+    bee.vx = 0;
+    bee.y = arena.height - BEE_RADIUS - 1;
+    flap(bee);
+    let prev = bee.y;
+    for (let i = 0; i < 30; i++) {
+      step(bee, DT, arena, true);
+      expect(bee.y).toBeLessThan(prev);
+      prev = bee.y;
+    }
+    // Steady, not ever faster: the climb is capped.
+    const climb = prev;
+    step(bee, DT, arena, true);
+    const perStep = climb - bee.y;
+    step(bee, DT, arena, true);
+    expect(bee.y).toBeCloseTo(climb - 2 * perStep, 5);
+    // Let go: gravity takes over and the bee comes back down.
+    const top = bee.y;
+    for (let i = 0; i < 30; i++) step(bee, DT, arena);
+    expect(bee.y).toBeGreaterThan(top);
+  });
+
+  it('stays inside the arena while held at the ceiling', () => {
+    const bee = launched(0);
+    bee.vx = 0;
+    for (let i = 0; i < 600; i++) {
+      step(bee, DT, arena, true);
+      expect(bee.y).toBeGreaterThanOrEqual(BEE_RADIUS);
+    }
+  });
+
   it('hops on the floor and stops at the ceiling instead of leaving the arena', () => {
     const bee = launched(0);
     bee.vx = 0;

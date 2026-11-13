@@ -40,6 +40,11 @@ export const BEE_RADIUS = 15;
 export const WALL = 12;
 const GRAVITY = 1500;
 const FLAP = 430;
+/** Holding on: after the first flap the bee keeps climbing, gaining speed up to a steady rise. */
+const HOLD_LIFT = 1400;
+const HOLD_RISE = 280;
+/** A press counts as holding only after this long, so a quick tap is still just a flap. */
+export const HOLD_DELAY_MS = 150;
 /** The floor is soft: the bee hops back up instead of crashing. */
 const FLOOR_HOP = 330;
 const DOOR_PAD = 14;
@@ -89,9 +94,13 @@ export function turn(bee: Bee, arena: Arena, speed: number, doors: Door[]): void
   bee.doors = doors;
 }
 
-/** Advances the bee by `dt` seconds. Returns an event when it reaches the wall it was heading for. */
-export function step(bee: Bee, dt: number, arena: Arena): WallEvent | null {
-  bee.vy += GRAVITY * dt;
+/**
+ * Advances the bee by `dt` seconds; `lifting` while the player holds on. Returns an event
+ * when the bee reaches the wall it was heading for.
+ */
+export function step(bee: Bee, dt: number, arena: Arena, lifting = false): WallEvent | null {
+  if (lifting) bee.vy = Math.max(-HOLD_RISE, bee.vy - HOLD_LIFT * dt);
+  else bee.vy += GRAVITY * dt;
   bee.y += bee.vy * dt;
   bee.x += bee.vx * dt;
 

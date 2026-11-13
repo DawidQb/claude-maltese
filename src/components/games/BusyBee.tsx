@@ -4,6 +4,7 @@ import {
   beeWords,
   doorLabel,
   flap,
+  HOLD_DELAY_MS,
   newBee,
   nextSpeed,
   placeDoors,
@@ -82,8 +83,11 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
   // The loop below starts once; it reaches the latest callbacks through this ref.
   const cb = useRef({ onStart, onCorrect, onWrong });
   cb.current = { onStart, onCorrect, onWrong };
-  /** Called on tap or key press; set by the game loop below. */
-  const tapRef = useRef<() => void>(() => {});
+  /** Called when a finger, the mouse or a key goes down and when it is let go; set by the game loop below. */
+  const pressRef = useRef<() => void>(() => {});
+  const releaseRef = useRef<() => void>(() => {});
+  /** Fingers (or the mouse) currently on the field: the bee keeps lifting until the last one is let go. */
+  const pointers = useRef(new Set<number>());
   // The loop reads the first question once; later ones are created inside it.
   const firstQuestion = useRef(question);
 
@@ -101,6 +105,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
     let pausedUntil = 0;
     let sparks: Spark[] = [];
     let shakeUntil = 0;
+    /** When the current press started, or 0 while nothing is held. */
+    let heldSince = 0;
     let last = 0;
     let frame = 0;
 
@@ -155,7 +161,8 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       }
     };
 
-    tapRef.current = () => {
+    pressRef.current = () => {
+      heldSince = performance.now();
       if (!bee || pausedUntil) return;
       if (!running) {
         running = true;
@@ -163,6 +170,9 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
         cb.current.onStart();
       }
       flap(bee);
+    };
+    releaseRef.current = () => {
+      heldSince = 0;
     };
 
     /* ---------- drawing ---------- */
@@ -331,7 +341,9 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
           bee.vy = 0;
         }
       } else if (running) {
-        const event = step(bee, dt, arena);
+        // A quick tap is one flap; holding on keeps the bee climbing.
+        const lifting = heldSince > 0 && now - heldSince >= HOLD_DELAY_MS;
+        const event = step(bee, dt, arena, lifting);
         if (event) onWall(event, now);
       } else {
         // Hovering before the first tap.
@@ -365,15 +377,35 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
   }, [pool, stream, dir, show]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        tapRef.current();
-      }
+    const isFlyKey = (e: KeyboardEvent) => e.key === ' ' || e.key === 'ArrowUp';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!isFlyKey(e)) return;
+      e.preventDefault();
+      // A key held down repeats; that is holding on, not a stream of taps.
+      if (!e.repeat) pressRef.current();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (isFlyKey(e) && pointers.current.size === 0) releaseRef.current();
+    };
+    // Switching away mid-press never delivers the release, so let go then.
+    const onBlur = () => {
+      pointers.current.clear();
+      releaseRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
   }, []);
+
+  const letGo = (id: number) => {
+    pointers.current.delete(id);
+    if (pointers.current.size === 0) releaseRef.current();
+  };
 
   return (
     <div
@@ -381,8 +413,14 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
       className="bee-arena"
       onPointerDown={(e) => {
         e.preventDefault();
-        tapRef.current();
+        // Keep receiving this finger's release even if it slides off the field.
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        pointers.current.add(e.pointerId);
+        pressRef.current();
       }}
+      onPointerUp={(e) => letGo(e.pointerId)}
+      onPointerCancel={(e) => letGo(e.pointerId)}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <canvas ref={canvasRef} role="img" aria-label="Game area: a bee flying between two walls with answer doors" />
 
@@ -404,7 +442,7 @@ function BeeField({ pool, dir, show, onStart, onCorrect, onWrong }: FieldProps) 
 }
 
 /**
- * Tap to keep the bee in the air. It bounces between two walls; the wall ahead has
+ * Tap, or hold on, to keep the bee in the air. It bounces between two walls; the wall ahead has
  * two doors, each labelled with an answer. Fly through the right one.
  */
 export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void }) {
@@ -497,7 +535,7 @@ export function BusyBee({ data, onExit }: { data: AppData; onExit: () => void })
             }}
           />
           <div className="bee-foot">
-            <p className="bee-hint">{started ? 'Tap to fly up' : 'Tap to start, then fly through the right door'}</p>
+            <p className="bee-hint">{started ? 'Tap or hold to fly up' : 'Tap to start, then fly through the right door'}</p>
             <button className="btn btn-secondary btn-small" onClick={() => setFinished(true)}>
               Finish
             </button>
