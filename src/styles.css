@@ -1185,6 +1185,142 @@ select {
   color: var(--muted);
 }
 
+/* Protect the hive */
+
+.hive-field {
+  position: relative;
+  flex: 1;
+  min-height: 252px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* A word creeping down its lane; the game loop sets its transform. */
+.hive-word {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-bottom-width: 3px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: manipulation;
+  will-change: transform;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.hive-word .tile-mt {
+  font-size: 1.15rem;
+}
+
+.hive-word.is-picked {
+  border-color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+
+.hive-word.is-wrong {
+  border-color: var(--no);
+  background: color-mix(in srgb, var(--no) 14%, var(--surface));
+}
+
+/* The hive: the strip at the bottom of the field that the words must not reach. */
+.hive-base {
+  position: absolute;
+  inset: auto 0 0;
+  height: 96px;
+  border-top: 2px solid var(--accent);
+  background: var(--surface-2);
+}
+
+.hive-tray {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hive-chip {
+  min-height: 52px;
+  padding: 6px 10px;
+}
+
+.hive-chip .tile-mt {
+  font-size: 1.1rem;
+}
+
+.hive-chip.is-empty {
+  visibility: hidden;
+}
+
+.hive-field .bee-overlay {
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
+}
+
+.hive-banner {
+  inset: 40% 28px auto;
+  border: 2px solid var(--accent);
+  color: var(--ink);
+}
+
+.hive-banner-title {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.hive-reveal-note {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--no);
+}
+
+.hive-honey {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.honey-cell {
+  width: 10px;
+  height: 12px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: var(--line);
+}
+
+.honey-cell.is-full {
+  background: var(--accent);
+}
+
+.hive-wave {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+@media (max-height: 639px) {
+  .hive-base {
+    height: 72px;
+  }
+
+  .hive-field {
+    min-height: 228px;
+  }
+}
+
 /* ---------- Word list ---------- */
 
 .filters {

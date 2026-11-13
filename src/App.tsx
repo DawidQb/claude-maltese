@@ -3,6 +3,7 @@ import { Games, type GameId } from './components/Games';
 import { BusyBee } from './components/games/BusyBee';
 import { InfiniteTyping } from './components/games/InfiniteTyping';
 import { MatchPairs } from './components/games/MatchPairs';
+import { ProtectHive } from './components/games/ProtectHive';
 import { SpeedRound } from './components/games/SpeedRound';
 import { Home } from './components/Home';
 import { Settings } from './components/Settings';
@@ -38,6 +39,7 @@ export function App() {
       <div className="shell">
         {activity === 'study' && <Study data={data} update={update} today={today} onExit={close} />}
         {activity === 'bee' && <BusyBee data={data} update={update} onExit={close} />}
+        {activity === 'hive' && <ProtectHive data={data} update={update} onExit={close} />}
         {activity === 'typing' && <InfiniteTyping data={data} onExit={close} />}
         {activity === 'pairs' && <MatchPairs data={data} onExit={close} />}
         {activity === 'speed' && <SpeedRound data={data} update={update} onExit={close} />}

@@ -26,6 +26,11 @@ export const MIN_POOL = 12;
 export const MAX_QUESTION = 18;
 /** …and on an answer chip in the tray. */
 export const MAX_ANSWER = 20;
+/**
+ * A field at least this wide has three lanes, a narrower one two. The plan said 560 px, but the
+ * app's column is at most 560 px wide with its padding, so the field never got there.
+ */
+export const THREE_LANES_FROM = 480;
 /** Decoys that look like a word are drawn at random from this many of the best look-alikes. */
 const PREFERRED = 4;
 
@@ -69,6 +74,11 @@ export interface Invader {
   word: Word;
   lane: number;
   y: number;
+}
+
+/** Lanes on a field this many px wide. */
+export function laneCount(width: number): 2 | 3 {
+  return width >= THREE_LANES_FROM ? 3 : 2;
 }
 
 /** Words short enough to read while they move, as a falling word and as an answer chip. */

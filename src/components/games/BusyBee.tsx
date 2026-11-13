@@ -31,7 +31,7 @@ import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face } from '../Cards';
-import { GameShell, MistakesList, Tally, type Mistake } from './GameShell';
+import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
 
 const REVEAL_MS = 1400;
 const MIN_POOL = 8;
@@ -785,15 +785,6 @@ function BeeField({ pool, dir, show, sound, onStart, onCorrect, onWrong, onBumps
         </div>
       )}
     </div>
-  );
-}
-
-function SpeakerIcon({ on }: { on: boolean }) {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 9h4l5-4v14l-5-4H4z" />
-      {on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19.5 5.5a9 9 0 0 1 0 13" /> : <path d="M17 9.5l5 5M22 9.5l-5 5" />}
-    </svg>
   );
 }
 

@@ -7,6 +7,7 @@ import {
   clash,
   fillTray,
   HONEY,
+  laneCount,
   hivePool,
   hiveWords,
   honeyAfterWave,
@@ -17,6 +18,7 @@ import {
   QUICK_SPAWN_MS,
   spawnDue,
   SURGE,
+  THREE_LANES_FROM,
   surge,
   waveSpec,
   type Invader,
@@ -263,6 +265,15 @@ describe('fillTray', () => {
     expect(inTopic.length).toBeGreaterThan(6);
     const tray = fillTray([], [inv(pool[0])], pool, 4, seeded(9));
     for (const w of tray) expect(w.topic).toBe(topic);
+  });
+});
+
+describe('laneCount', () => {
+  it('gives a phone two lanes and a wide field three', () => {
+    expect(laneCount(358)).toBe(2);
+    expect(laneCount(THREE_LANES_FROM - 1)).toBe(2);
+    expect(laneCount(THREE_LANES_FROM)).toBe(3);
+    expect(laneCount(528)).toBe(3);
   });
 });
 

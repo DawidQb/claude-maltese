@@ -1,7 +1,7 @@
 import type { AppData, Settings, Update } from '../lib/store';
 import { DirectionPicker, TopicOptions } from './Home';
 
-export type GameId = 'bee' | 'typing' | 'pairs' | 'speed';
+export type GameId = 'bee' | 'hive' | 'typing' | 'pairs' | 'speed';
 
 interface Props {
   data: AppData;
@@ -19,6 +19,11 @@ export function Games({ data, update, onPlay }: Props) {
       id: 'bee',
       name: 'Busy bee',
       text: 'Tap to keep the bee flying and steer it through the door with the right answer.',
+    },
+    {
+      id: 'hive',
+      name: 'Protect the hive',
+      text: 'Words creep towards the hive. Tap a word and its answer to zap it before it gets there.',
     },
     {
       id: 'typing',
