@@ -96,3 +96,46 @@ export function drawBee(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
   ctx.stroke();
   ctx.restore();
 }
+
+/**
+ * A spider hanging head down, centred on (x, y) with body radius `r`: a round body in the ink
+ * colour, a smaller head below it with two red eyes, and eight legs that flex with `now` (pass 0
+ * to keep them still).
+ */
+export function drawSpider(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, now: number, colors: Colors) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = colors.ink;
+  ctx.lineWidth = Math.max(1.5, r * 0.16);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // Legs: four a side, each a thigh up and out and a shin down to the foot.
+  for (const side of [-1, 1]) {
+    for (let k = 0; k < 4; k++) {
+      const flex = now ? Math.sin(now / 140 + k * 1.3 + (side > 0 ? 0.6 : 0)) * 0.12 : 0;
+      const a = (-0.75 + k * 0.42 + flex) * Math.PI * 0.5;
+      const kneeX = side * Math.cos(a) * r * 1.5;
+      const kneeY = Math.sin(a) * r * 1.5 - r * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(side * r * 0.3, 0);
+      ctx.lineTo(kneeX, kneeY);
+      ctx.lineTo(kneeX + side * r * 0.6, kneeY + r * 1.1);
+      ctx.stroke();
+    }
+  }
+  // Body, then the head below it.
+  ctx.fillStyle = colors.ink;
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.15, r, r * 1.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, r * 1.05, r * 0.52, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = colors.bad;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(side * r * 0.2, r * 1.15, r * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}

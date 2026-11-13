@@ -1949,6 +1949,35 @@ select {
   box-shadow: var(--shadow);
 }
 
+.web-scene canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A caught word: the overlay follows once the spider is there and the scene has dimmed. */
+.web-scene .web-caught {
+  animation: web-caught-in 0.25s ease 0.45s both;
+}
+
+@keyframes web-caught-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A hit: the cells it fills pop. */
+.web-cell.is-filled {
+  animation: web-pop 0.25s ease;
+}
+
+@keyframes web-pop {
+  50% {
+    transform: scale(1.25);
+  }
+}
+
 .web-steps {
   position: absolute;
   top: 10px;
@@ -2116,6 +2145,17 @@ select {
   --key-edge: var(--known);
   --key-fill: color-mix(in srgb, var(--known) 22%, var(--surface));
   color: var(--ink);
+}
+
+/* A miss: the key flashes red, then keeps a light red fill. */
+.web-keys .key.is-miss::after {
+  animation: web-miss 0.45s ease;
+}
+
+@keyframes web-miss {
+  from {
+    background: var(--no);
+  }
 }
 
 .web-keys .key.is-miss {
