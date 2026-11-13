@@ -37,7 +37,7 @@ export interface AppData {
   /** New words first seen on `date`, per direction. */
   introduced: { date: string; mt2x: number; x2mt: number };
   /** Minigame records. Games never change the review schedule. */
-  games: { speedBest: number; hiveBest: number; queenBest: number };
+  games: { speedBest: number; hiveBest: number; queenBest: number; stingBest: number };
 }
 
 // The key keeps the app's first name, Kelma: renaming it would orphan everyone's saved progress.
@@ -50,7 +50,7 @@ export function emptyData(): AppData {
     settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
-    games: { speedBest: 0, hiveBest: 0, queenBest: 0 },
+    games: { speedBest: 0, hiveBest: 0, queenBest: 0, stingBest: 0 },
   };
 }
 
@@ -100,7 +100,7 @@ export function sanitize(input: unknown): AppData | null {
 
   const g = (src.games ?? {}) as Partial<AppData['games']>;
   const best = (n: unknown) => (typeof n === 'number' && n > 0 ? Math.round(n) : 0);
-  const games = { speedBest: best(g.speedBest), hiveBest: best(g.hiveBest), queenBest: best(g.queenBest) };
+  const games = { speedBest: best(g.speedBest), hiveBest: best(g.hiveBest), queenBest: best(g.queenBest), stingBest: best(g.stingBest) };
 
   return { version: 1, cards, settings, streak, introduced, games };
 }

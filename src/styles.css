@@ -2213,6 +2213,114 @@ select {
   }
 }
 
+/* True or sting: the visitor's card, swiped or decided with the two buttons under it. */
+.sting-card {
+  gap: 6px;
+  padding: 20px 18px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.18s ease, box-shadow 0.12s ease;
+}
+
+.sting-card .word-mt {
+  font-size: clamp(2rem, 10vw, 2.8rem);
+}
+
+.sting-claim {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.sting-claim .tr-lines {
+  align-items: center;
+  gap: 4px;
+}
+
+.sting-claim .tr-lines span + span {
+  font-size: 0.8em;
+}
+
+/* While swiping, the card shows which way it will go. */
+.sting-card.is-leaning-in {
+  box-shadow: 0 0 0 3px var(--known), var(--shadow);
+}
+
+.sting-card.is-leaning-out {
+  box-shadow: 0 0 0 3px var(--no), var(--shadow);
+}
+
+/* A wrong call: the false claim struck through, the real meaning under it. */
+.sting-claim.is-false {
+  text-decoration: line-through;
+  text-decoration-color: var(--no);
+  text-decoration-thickness: 2px;
+  color: var(--muted);
+}
+
+.sting-correction {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--known);
+}
+
+.sting-correction .tr-lines span + span {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.sting-note {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sting-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sting-btn {
+  min-height: 72px;
+  border: 2px solid currentColor;
+  border-bottom-width: 4px;
+  border-radius: 16px;
+  background: var(--surface);
+  font-size: 1.2rem;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+.sting-no {
+  color: var(--no);
+}
+
+.sting-yes {
+  color: var(--known);
+}
+
+.sting-btn:disabled {
+  opacity: 0.55;
+}
+
+@media (max-height: 639px) {
+  .sting-card {
+    padding: 12px 14px;
+  }
+
+  .sting-claim {
+    font-size: 1.35rem;
+  }
+}
+
 /* ---------- Word list ---------- */
 
 .filters {

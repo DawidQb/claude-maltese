@@ -1,7 +1,7 @@
 import type { AppData, Settings, Update } from '../lib/store';
 import { DirectionPicker, TopicOptions } from './Home';
 
-export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'spell' | 'web' | 'pairs' | 'speed';
+export type GameId = 'bee' | 'hive' | 'queen' | 'typing' | 'spell' | 'web' | 'pairs' | 'sting' | 'speed';
 
 interface Props {
   data: AppData;
@@ -55,6 +55,12 @@ export function Games({ data, update, onPlay }: Props) {
       name: 'Match pairs',
       text: 'Six Maltese words and six translations. Tap the two that belong together. No timer.',
       detail: 'Direction does not apply',
+    },
+    {
+      id: 'sting',
+      name: 'True or sting',
+      text: 'A word and a meaning. Let it in if they match, sting it if they don’t. 30 seconds.',
+      detail: data.games.stingBest > 0 ? `best ${data.games.stingBest}` : 'Direction does not apply',
     },
     {
       id: 'speed',

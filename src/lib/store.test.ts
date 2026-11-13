@@ -61,24 +61,31 @@ describe('sanitize', () => {
   });
 
   it('keeps the speed-round record and ignores a broken one', () => {
-    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 17 } })?.games).toEqual({ speedBest: 17, hiveBest: 0, queenBest: 0 });
-    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 'lots' } })?.games).toEqual({ speedBest: 0, hiveBest: 0, queenBest: 0 });
-    expect(sanitize({ version: 1, cards: {} })?.games).toEqual({ speedBest: 0, hiveBest: 0, queenBest: 0 });
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 17 } })?.games).toEqual({ speedBest: 17, hiveBest: 0, queenBest: 0, stingBest: 0 });
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 'lots' } })?.games).toEqual({ speedBest: 0, hiveBest: 0, queenBest: 0, stingBest: 0 });
+    expect(sanitize({ version: 1, cards: {} })?.games).toEqual({ speedBest: 0, hiveBest: 0, queenBest: 0, stingBest: 0 });
   });
 
   it('keeps the Protect the hive record, and gives 0 when it is missing or broken', () => {
-    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3, hiveBest: 42 } })?.games).toEqual({ speedBest: 3, hiveBest: 42, queenBest: 0 });
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3, hiveBest: 42 } })?.games).toEqual({ speedBest: 3, hiveBest: 42, queenBest: 0, stingBest: 0 });
     expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3 } })?.games.hiveBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: { hiveBest: 'many' } })?.games.hiveBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: { hiveBest: -5 } })?.games.hiveBest).toBe(0);
   });
 
   it('keeps the Queen’s orders record, and gives 0 when it is missing or broken', () => {
-    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3, hiveBest: 42, queenBest: 17 } })?.games).toEqual({ speedBest: 3, hiveBest: 42, queenBest: 17 });
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3, hiveBest: 42, queenBest: 17 } })?.games).toEqual({ speedBest: 3, hiveBest: 42, queenBest: 17, stingBest: 0 });
     expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3, hiveBest: 42 } })?.games.queenBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: { queenBest: 'twenty' } })?.games.queenBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: { queenBest: -2 } })?.games.queenBest).toBe(0);
     expect(sanitize({ version: 1, cards: {}, games: null })?.games.queenBest).toBe(0);
+  });
+
+  it('keeps the True or sting record, and gives 0 when it is missing or broken', () => {
+    expect(sanitize({ version: 1, cards: {}, games: { stingBest: 23 } })?.games.stingBest).toBe(23);
+    expect(sanitize({ version: 1, cards: {}, games: { speedBest: 3 } })?.games.stingBest).toBe(0);
+    expect(sanitize({ version: 1, cards: {}, games: { stingBest: 'lots' } })?.games.stingBest).toBe(0);
+    expect(sanitize({ version: 1, cards: {}, games: { stingBest: -1 } })?.games.stingBest).toBe(0);
   });
 
   it('keeps the game direction apart from the Study direction, Polish / English → Maltese by default', () => {
