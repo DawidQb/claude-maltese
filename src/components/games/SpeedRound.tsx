@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { makeQuestion, WordStream, type Question } from '../../lib/games';
 import type { AppData, Update } from '../../lib/store';
 import { wordsInTopic } from '../../lib/words';
@@ -9,6 +9,9 @@ import { GameShell, Tally } from './GameShell';
 const ROUND_MS = 60_000;
 const AFTER_CORRECT_MS = 250;
 const AFTER_WRONG_MS = 900;
+/** The timer is a row of honey cells, each holding this share of the round, draining one by one. */
+const TIMER_CELLS = 12;
+const CELL_MS = ROUND_MS / TIMER_CELLS;
 
 type Phase = 'ready' | 'playing' | 'over';
 
@@ -85,13 +88,15 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
       {phase === 'playing' && question && (
         <>
           <div className="timer">
-            <div className="progress" role="timer" aria-label={`${seconds} seconds left`}>
-              <span style={{ width: `${(remaining / ROUND_MS) * 100}%` }} />
+            <div className="honey-timer" role="timer" aria-label={`${seconds} seconds left`}>
+              {Array.from({ length: TIMER_CELLS }, (_, i) => (
+                <i key={i} style={{ '--fill': Math.min(1, Math.max(0, (remaining - i * CELL_MS) / CELL_MS)) } as CSSProperties} />
+              ))}
             </div>
             <span className="timer-num">{seconds}s</span>
           </div>
 
-          <div className="card card-quiz" key={question.answer.id}>
+          <div className="card card-quiz comb-bg" key={question.answer.id}>
             <Face word={question.answer} side={dir === 'mt2x' ? 'mt' : 'x'} show={show} />
           </div>
 
@@ -100,7 +105,7 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
               const state =
                 chosen === null ? '' : w.id === question.answer.id ? 'is-right' : w.id === chosen ? 'is-wrong' : 'is-dim';
               return (
-                <button key={w.id} className={`tile-btn option ${state}`} onClick={() => choose(w.id)}>
+                <button key={w.id} className={`tile-btn cell option ${state}`} onClick={() => choose(w.id)}>
                   {dir === 'mt2x' ? (
                     <TranslationLines word={w} show={show} />
                   ) : (

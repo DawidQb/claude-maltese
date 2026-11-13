@@ -55,13 +55,13 @@ export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void
   };
 
   const tileClass = (side: Side, id: string) =>
-    ['tile-btn', matched.has(id) && 'is-matched', picked[side] === id && 'is-picked', wrong?.[side] === id && 'is-wrong']
+    ['tile-btn', 'cell', matched.has(id) && 'is-matched', picked[side] === id && 'is-picked', wrong?.[side] === id && 'is-wrong']
       .filter(Boolean)
       .join(' ');
 
   return (
     <GameShell title="Match pairs" status={<Tally ok={score.ok} bad={score.bad} />} onExit={onExit}>
-      <div className="pairs">
+      <div className="pairs pairs-comb">
         <div className="pairs-col" role="group" aria-label="Maltese">
           {round.left.map((w) => (
             <button

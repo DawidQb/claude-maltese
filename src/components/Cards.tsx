@@ -22,15 +22,17 @@ interface TypeProps {
   onGrade: (grade: Grade) => void;
   /** Once checked, a tap anywhere on the card does what Continue does. */
   tapToContinue?: boolean;
+  /** The games' honeycomb look: hexagonal keys in a comb, and comb on the card. */
+  comb?: boolean;
 }
 
 /** The question, and once it has been checked, the verdict and the right answer. */
-function QuestionCard(props: { word: Word; show: ShowLang; verdict: Verdict | null; typed: string; onTap?: () => void }) {
-  const { word, show, verdict, typed, onTap } = props;
+function QuestionCard(props: { word: Word; show: ShowLang; verdict: Verdict | null; typed: string; onTap?: () => void; comb: boolean }) {
+  const { word, show, verdict, typed, onTap, comb } = props;
   // The Continue button stays the accessible control; the tap is a shortcut for touch.
   const tappable = verdict !== null && onTap !== undefined;
   return (
-    <div className={`card card-typing${tappable ? ' card-tappable' : ''}`} onClick={tappable ? onTap : undefined}>
+    <div className={`card card-typing${tappable ? ' card-tappable' : ''}${comb ? ' comb-bg' : ''}`} onClick={tappable ? onTap : undefined}>
       <p className="card-side">Translate into Maltese</p>
       <Face word={word} side="x" show={show} />
       {verdict && (
@@ -70,7 +72,7 @@ function ResultButtons({ verdict, onGrade }: { verdict: Verdict; onGrade: (grade
  * the word's own letters and some decoys. A hardware keyboard still works.
  * Used by typing mode on the Study tab and by the infinite typing game.
  */
-export function TileCard({ word, show, autoCheck, onGrade, tapToContinue = false }: TypeProps) {
+export function TileCard({ word, show, autoCheck, onGrade, tapToContinue = false, comb = false }: TypeProps) {
   const [keys] = useState(() => letterKeys(word.mt));
   // The answer so far, one entry per key press, so that backspace removes "għ" in one go.
   const [typedKeys, setTypedKeys] = useState<string[]>([]);
@@ -108,6 +110,7 @@ export function TileCard({ word, show, autoCheck, onGrade, tapToContinue = false
         show={show}
         verdict={verdict}
         typed={typed.trim()}
+        comb={comb}
         onTap={tapToContinue && verdict ? () => onGrade(VERDICT[verdict].grade) : undefined}
       />
 
@@ -130,7 +133,7 @@ export function TileCard({ word, show, autoCheck, onGrade, tapToContinue = false
                 ⌫
               </button>
             </div>
-            <div className="keys keys-pad" role="group" aria-label="Letters">
+            <div className={`keys keys-pad${comb ? ' keys-comb' : ''}`} role="group" aria-label="Letters">
               {keys.map((k) => (
                 <button
                   key={k}
