@@ -2,11 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   BEE_RADIUS,
   beeWords,
+  bumpCounts,
+  collectPollen,
+  DIFFICULTY,
+  difficulty,
   doorLabel,
+  enterRoom,
   flap,
+  MAX_BUMPS,
+  MIN_DOOR,
   newBee,
   nextSpeed,
   placeDoors,
+  placePollen,
+  POLLEN,
   SPEED,
   step,
   turn,
@@ -23,8 +32,8 @@ const DT = 1 / 60;
 function flyTo(bee: Bee, targetY: number, maxSeconds = 10) {
   for (let i = 0; i < maxSeconds * 60; i++) {
     if (bee.y > targetY && bee.vy > -100) flap(bee);
-    const event = step(bee, DT, arena);
-    if (event) return event;
+    const hit = step(bee, DT, arena);
+    if (hit) return hit.event;
   }
   throw new Error('the bee never reached a wall');
 }
@@ -62,6 +71,79 @@ describe('placeDoors', () => {
         expect(upper.bottom - upper.top).toBeGreaterThan(BEE_RADIUS * 4);
       }
     }
+  });
+
+  it('places two full-size doors exactly as before door counts and sizes could change', () => {
+    // The original rule, kept here as the reference.
+    const before = (a: Arena, correct: number, rng: () => number, headroom: number) => {
+      const half = (a.height - headroom) / 2;
+      const room = half - 14 - 28 / 2;
+      const size = Math.min(room, Math.max(96, Math.min(150, a.height * 0.26)));
+      const upperTop = headroom + 14 + rng() * (room - size);
+      const lowerTop = headroom + half + 28 / 2 + rng() * (room - size);
+      return [
+        { top: upperTop, bottom: upperTop + size, option: 0, correct: correct === 0 },
+        { top: lowerTop, bottom: lowerTop + size, option: 1, correct: correct === 1 },
+      ];
+    };
+    for (const height of [360, 560, 900]) {
+      for (const headroom of [0, 70]) {
+        const a = { width: 360, height };
+        const draws = [0.1, 0.8];
+        const rng = () => draws.shift() ?? 0.5;
+        const again = [0.1, 0.8];
+        expect(placeDoors(a, 1, rng, headroom)).toEqual(before(a, 1, () => again.shift() ?? 0.5, headroom));
+      }
+    }
+  });
+
+  it('reports the door the bee flew through', () => {
+    const bee = launched(1);
+    const target = bee.doors[1];
+    for (let i = 0; i < 600; i++) {
+      if (bee.y > (target.top + target.bottom) / 2 && bee.vy > -100) flap(bee);
+      const hit = step(bee, DT, arena);
+      if (hit) {
+        expect(hit).toEqual({ event: 'correct', door: target });
+        return;
+      }
+    }
+    throw new Error('no wall reached');
+  });
+
+  it('places three doors inside the arena, below the word, without overlap, at any phone height', () => {
+    for (const height of [400, 500, 560, 700, 900]) {
+      for (const r of [0, 0.5, 0.999]) {
+        for (const correct of [0, 1, 2]) {
+          const doors = placeDoors({ width: 360, height }, correct, () => r, 70, 3, DIFFICULTY.narrowScale);
+          expect(doors).toHaveLength(3);
+          expect(doors.filter((d) => d.correct).map((d) => d.option)).toEqual([correct]);
+          expect(doors[0].top).toBeGreaterThan(70);
+          expect(doors[2].bottom).toBeLessThanOrEqual(height);
+          for (let i = 1; i < 3; i++) expect(doors[i].top).toBeGreaterThan(doors[i - 1].bottom + BEE_RADIUS);
+          for (const d of doors) expect(d.bottom - d.top).toBeGreaterThanOrEqual(MIN_DOOR);
+        }
+      }
+    }
+  });
+
+  it('never makes a door shorter than MIN_DOOR, however small the scale', () => {
+    for (const height of [400, 560, 700, 900]) {
+      for (const scale of [1, DIFFICULTY.narrowScale, DIFFICULTY.crampedScale, 0.3]) {
+        for (const d of placeDoors({ width: 360, height }, 0, () => 0.5, 70, 2, scale)) {
+          expect(d.bottom - d.top).toBeGreaterThanOrEqual(MIN_DOOR);
+        }
+      }
+    }
+  });
+
+  it('shrinks the doors with the scale', () => {
+    const a = { width: 360, height: 800 };
+    const size = (scale: number) => {
+      const [d] = placeDoors(a, 0, () => 0.5, 70, 2, scale);
+      return d.bottom - d.top;
+    };
+    expect(size(DIFFICULTY.narrowScale)).toBeCloseTo(size(1) * DIFFICULTY.narrowScale, 5);
   });
 
   it('marks exactly the door of the right answer', () => {
@@ -156,9 +238,9 @@ describe('reaching the wall', () => {
     for (let i = 0; i < 600; i++) {
       bee.y = between;
       bee.vy = 0;
-      const event = step(bee, DT, arena);
-      if (event) {
-        expect(event).toBe('bump');
+      const hit = step(bee, DT, arena);
+      if (hit) {
+        expect(hit).toEqual({ event: 'bump' });
         return;
       }
     }
@@ -175,6 +257,92 @@ describe('reaching the wall', () => {
   });
 });
 
+describe('entering the next room', () => {
+  const mid = (bee: Bee, option: number) => (bee.doors[option].top + bee.doors[option].bottom) / 2;
+
+  /** Flies straight on at a fixed height and reports how long it took to reach a wall. */
+  function crossing(bee: Bee, y: number) {
+    let t = 0;
+    for (let i = 0; i < 1200; i++) {
+      bee.y = y;
+      bee.vy = 0;
+      t += DT;
+      const hit = step(bee, DT, arena);
+      if (hit) return { hit, t };
+    }
+    throw new Error('no wall reached');
+  }
+
+  for (const dir of [1, -1] as const) {
+    it(`goes on through the wall in the same direction (${dir === 1 ? 'right' : 'left'})`, () => {
+      const bee = launched(0);
+      if (dir === -1) {
+        flyTo(bee, mid(bee, 1));
+        turn(bee, arena, SPEED.start, placeDoors(arena, 0, () => 0.5));
+      }
+      expect(flyTo(bee, mid(bee, 0))).toBe('correct');
+      const { x, y, vy } = bee;
+      const next = placeDoors(arena, 1, () => 0.3);
+      enterRoom(bee, arena, SPEED.start, next);
+
+      expect(bee.dir).toBe(dir);
+      expect(bee.x).toBe(x - dir * (arena.width - WALL));
+      expect(bee.y).toBe(y);
+      expect(bee.vy).toBe(vy);
+      expect(bee.vx).toBe(dir * SPEED.start * arena.width);
+      expect(bee.doors).toBe(next);
+      // Still in the doorway of the wall behind.
+      expect(dir === 1 ? bee.x < WALL : bee.x > arena.width - WALL).toBe(true);
+
+      // No event while leaving the doorway; the far wall next, after at least a full crossing.
+      const { hit, t } = crossing(bee, mid(bee, 1));
+      expect(hit.event).toBe('correct');
+      expect(bee.x).toBe(dir === 1 ? arena.width - WALL - BEE_RADIUS : WALL + BEE_RADIUS);
+      const full = (arena.width - 2 * (WALL + BEE_RADIUS)) / (SPEED.start * arena.width);
+      expect(t).toBeGreaterThanOrEqual(full);
+      expect(t).toBeLessThan(full * 1.2);
+    });
+  }
+});
+
+describe('difficulty', () => {
+  const tall = { width: 390, height: 700 };
+
+  it('starts gentle and tightens as the run of right answers grows', () => {
+    const at = (run: number) => difficulty(run, tall, 70);
+    for (const run of [0, 1, 2]) expect(at(run)).toEqual({ doors: 2, scale: 1, lookalikes: false });
+    for (const run of [3, 4, 5]) expect(at(run)).toEqual({ doors: 2, scale: 1, lookalikes: true });
+    for (const run of [6, 7, 8]) expect(at(run)).toEqual({ doors: 2, scale: DIFFICULTY.narrowScale, lookalikes: true });
+    for (const run of [9, 10, 25]) expect(at(run)).toEqual({ doors: 3, scale: DIFFICULTY.narrowScale, lookalikes: true });
+  });
+
+  it('keeps two smaller doors where three would not fit', () => {
+    expect(difficulty(9, { width: 390, height: 300 }, 70)).toEqual({ doors: 2, scale: DIFFICULTY.crampedScale, lookalikes: true });
+    // A tall prompt strip leaves too little room, too.
+    expect(difficulty(9, { width: 390, height: 420 }, 140).doors).toBe(2);
+  });
+
+  it('adds the third door only where each of the three is comfortably tall', () => {
+    for (const height of [300, 400, 450, 500, 560, 700, 900]) {
+      const level = difficulty(9, { width: 390, height }, 70);
+      if (level.doors === 3) {
+        for (const d of placeDoors({ width: 390, height }, 0, () => 0.5, 70, 3, level.scale)) {
+          expect(d.bottom - d.top).toBeGreaterThanOrEqual(84);
+        }
+      }
+    }
+  });
+});
+
+describe('bumpCounts', () => {
+  it('forgives one bump per question and counts the next as a miss', () => {
+    expect(MAX_BUMPS).toBe(1);
+    expect(bumpCounts(0)).toBe('bump');
+    expect(bumpCounts(1)).toBe('wrong');
+    expect(bumpCounts(2)).toBe('wrong');
+  });
+});
+
 describe('nextSpeed', () => {
   it('speeds up on a right answer, slows on a wrong one, and stays within limits', () => {
     expect(nextSpeed(SPEED.start, 'correct')).toBeGreaterThan(SPEED.start);
@@ -183,8 +351,78 @@ describe('nextSpeed', () => {
     let s = SPEED.start;
     for (let i = 0; i < 200; i++) s = nextSpeed(s, 'correct');
     expect(s).toBe(SPEED.max);
+    // Top speed after about fifteen right answers.
+    let fifteen = SPEED.start;
+    for (let i = 0; i < 14; i++) fifteen = nextSpeed(fifteen, 'correct');
+    expect(fifteen).toBeLessThan(SPEED.max);
+    expect(nextSpeed(nextSpeed(fifteen, 'correct'), 'correct')).toBe(SPEED.max);
     for (let i = 0; i < 200; i++) s = nextSpeed(s, 'wrong');
     expect(s).toBe(SPEED.min);
+  });
+});
+
+describe('pollen', () => {
+  /** Repeatable random numbers. */
+  const seeded = (seed: number) => {
+    let s = seed;
+    return () => {
+      s = (s * 1664525 + 1013904223) % 4294967296;
+      return s / 4294967296;
+    };
+  };
+
+  it('has none in the first three crossings of a round', () => {
+    for (let crossing = 0; crossing < POLLEN.after; crossing++) {
+      for (const r of [0, 0.1, 0.5, 0.99]) expect(placePollen(arena, 1, 70, crossing, () => r)).toEqual([]);
+    }
+    expect(POLLEN.after).toBe(3);
+  });
+
+  it('comes one grain or two at a time, often enough to notice', () => {
+    expect(placePollen(arena, 1, 70, 3, () => 0)).toHaveLength(2);
+    expect(placePollen(arena, 1, 70, 3, () => POLLEN.two + 0.01)).toHaveLength(1);
+    expect(placePollen(arena, 1, 70, 3, () => 0.99)).toHaveLength(0);
+    const rng = seeded(5);
+    let crossingsWithPollen = 0;
+    for (let i = 0; i < 1000; i++) if (placePollen(arena, 1, 70, 10, rng).length) crossingsWithPollen += 1;
+    expect(crossingsWithPollen / 1000).toBeCloseTo(POLLEN.one + POLLEN.two, 1);
+  });
+
+  it('sits in the first half of the crossing, below the word and above the floor, both ways and at any height', () => {
+    for (const height of [400, 560, 700, 900]) {
+      const a = { width: 390, height };
+      const across = a.width - 2 * WALL;
+      for (const dir of [1, -1] as const) {
+        const rng = seeded(height + dir);
+        for (let i = 0; i < 200; i++) {
+          for (const g of placePollen(a, dir, 70, 5, rng)) {
+            const fromWall = dir === 1 ? g.x - WALL : a.width - WALL - g.x;
+            expect(fromWall / across).toBeGreaterThanOrEqual(POLLEN.from);
+            expect(fromWall / across).toBeLessThanOrEqual(POLLEN.to);
+            expect(g.y).toBeGreaterThanOrEqual(70);
+            expect(g.y).toBeLessThanOrEqual(height - POLLEN.floor);
+          }
+        }
+      }
+    }
+  });
+
+  it('is in the same place whichever door is right', () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const grains = [0, 1, 2].map((correct) => {
+        placeDoors(arena, correct, seeded(99), 70, 3);
+        return placePollen(arena, 1, 70, 4, seeded(seed));
+      });
+      expect(grains[1]).toEqual(grains[0]);
+      expect(grains[2]).toEqual(grains[0]);
+    }
+  });
+
+  it('is taken when the bee flies through it, and left when it misses', () => {
+    const bee = launched(0);
+    const hit = { x: bee.x + BEE_RADIUS, y: bee.y - 4 };
+    const miss = { x: bee.x, y: bee.y + BEE_RADIUS + POLLEN.reach + 2 };
+    expect(collectPollen(bee, [hit, miss])).toEqual({ left: [miss], taken: [hit] });
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkAnswer } from './answer';
-import { keyLabel, letterKeys, padSize, toKeys } from './letters';
+import { keyLabel, letterKeys, padSize, similarity, toKeys } from './letters';
 import { WORDS } from './words';
 
 function seeded(seed: number) {
@@ -101,5 +101,36 @@ describe('keyLabel', () => {
   it('shows the space key as a visible sign', () => {
     expect(keyLabel(' ')).toBe('␣');
     expect(keyLabel('għ')).toBe('għ');
+  });
+});
+
+describe('similarity', () => {
+  it('counts look-alike letters as the same', () => {
+    expect(similarity('ħobż', 'hobz')).toBe(1);
+    expect(similarity('għada', 'hada')).toBe(1);
+    expect(similarity('ċaw', 'kaw')).toBe(1);
+  });
+
+  it('ranks words that look alike above unrelated ones', () => {
+    for (const [word, alike, unrelated] of [
+      ['ħobż', 'hobz', 'ilma'],
+      ['ħobż', 'ħolma', 'tifel'],
+      ['dar', 'dawra', 'kelb'],
+      ['ġobon', 'gobon', 'xemx'],
+    ]) {
+      expect(similarity(word, alike), `${alike} vs ${unrelated}`).toBeGreaterThan(similarity(word, unrelated));
+    }
+  });
+
+  it('is the same both ways and stays between 0 and 1', () => {
+    for (const [a, b] of [
+      ['ħobż', 'ilma'],
+      ['xagħar', 'għajn'],
+      ['jiekol', 'jieklu'],
+    ]) {
+      expect(similarity(a, b)).toBeCloseTo(similarity(b, a), 10);
+      expect(similarity(a, b)).toBeGreaterThanOrEqual(0);
+      expect(similarity(a, b)).toBeLessThanOrEqual(1);
+    }
   });
 });

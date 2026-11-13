@@ -19,6 +19,8 @@ export interface Settings {
   plurals: boolean;
   /** Include conjugated verb forms ("he eats", "we danced") as cards of their own. */
   verbForms: boolean;
+  /** Sound and vibration in the games. */
+  sound: boolean;
 }
 
 export interface AppData {
@@ -40,7 +42,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true },
+    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0 },
@@ -74,6 +76,7 @@ export function sanitize(input: unknown): AppData | null {
     autoCheck: s.autoCheck !== false,
     plurals: s.plurals !== false,
     verbForms: s.verbForms !== false,
+    sound: s.sound !== false,
   };
 
   const st = (src.streak ?? {}) as Partial<Streak>;
