@@ -12,7 +12,7 @@ Flashcards for memorising Maltese words through their Polish and English transla
 - Watch the flowers, at the bottom of the Games tab: not a game but a meadow to leave running. Bees wander about a few flowers, and every so often one flies in carrying a word (the side asked by the Games direction, from the topic chosen there); it lands on a flower, which opens to show the meaning a few seconds later. Tap the bee to see the meaning at once, or the open flower to keep it open. It favours words you are still shaky on or that are coming back soon, plus the next twenty new ones, and only reads the review schedule, never changes it. A switch sets how often words come (seldom, normal, often), and the screen stays on while it is open.
 - Beeeeeeeeeeeees! (Settings → App): switch on a swarm of bees flying about behind the whole app. They keep still on devices set to reduce motion.
 - Installable and usable offline: add it to your home screen from the browser.
-- Progress lives in the browser's local storage, so the app works without a connection or an account. Sign in (Settings → Account) to keep progress in step on every device, or use Settings → Export / Import to move it by hand.
+- Progress lives in the browser's local storage, so the app works without a connection or an account. Sign in (Settings → Account) to keep progress in step on every device, or use Settings → Export / Import to move it by hand. Accounts are set up by the owner; there is no sign-up in the app.
 
 ## Develop
 
@@ -61,9 +61,9 @@ item instead:
 The project holds three things: accounts (Supabase Auth), each account's progress, and the
 word deck (see above). Signing in is optional. Accounts use an email address and a password (Supabase Auth, which
 stores only a bcrypt hash; the app never saves or logs passwords, and the browser keeps only
-the session tokens). A new account confirms its address through a link in an email, and a
-forgotten password is reset the same way. Each account's progress is one row of the
-`progress` table.
+the session tokens). New accounts are created by the owner in the Supabase dashboard (see
+"Adding a person" below), and a forgotten password is reset through a link in an email. Each
+account's progress is one row of the `progress` table.
 Settings are not synced; each device keeps its own.
 
 - Every device keeps working from local storage and syncs on sign-in, a few seconds after
@@ -84,12 +84,21 @@ Setting up a Supabase project:
    the progress table, the word tables, then the seed that loads the shipped deck.
 2. Authentication → URL Configuration: set Site URL to the GitHub Pages address and add it,
    plus `http://localhost:5173`, to Redirect URLs.
-3. Authentication → Sign In / Providers → Email: keep "Confirm email" on, and set the
-   minimum password length to at least 8 (the app asks for 8).
+3. Authentication → Sign In / Providers: switch off "Allow new users to sign up", and under
+   Email set the minimum password length to at least 8 (the app asks for 8 when a password
+   is changed).
 4. Put the project URL and its publishable key in `src/lib/supabase.ts`. Both are public;
    row-level security keeps each account's row private and the deck read-only. Never put a
    secret or `service_role` key in the app. With the key left empty, the Account section is
    hidden and the app uses the shipped deck.
+
+### Adding a person
+
+Authentication → Users → Add user → Create new user. Enter their email address and a
+password, leave "Auto Confirm User" ticked, and create. Give them the password privately.
+They sign in under Settings → Account, and can replace the password with their own through
+"Forgot password?" on the sign-in form. Add only people you know personally; that is what
+keeps the project private.
 
 ## Offline support
 
