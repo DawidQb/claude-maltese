@@ -15,7 +15,7 @@ import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { WORDS, type Word } from '../../lib/words';
 import { TranslationLines } from '../Cards';
-import { DIRECTION_LABEL } from '../Home';
+import { directionLabel } from '../Home';
 import { drawBee, readColors, type Colors } from './beeArt';
 import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
 
@@ -744,7 +744,7 @@ export function QueensOrders({ data, update, onExit }: { data: AppData; update: 
           ) : (
             <>
               <p className="done-text">The queen asks for a form of a verb. Tap the worker carrying it before they reach her.</p>
-              <p className="muted">{DIRECTION_LABEL.x2mt}</p>
+              <p className="muted">{directionLabel('x2mt')}</p>
               {data.games.queenBest > 0 && <p className="muted">Your best: {data.games.queenBest}</p>}
               <div className="done-actions">
                 <button className="btn btn-primary btn-wide" onClick={start} autoFocus>

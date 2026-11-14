@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { WordStream } from '../../lib/games';
+import { typeable } from '../../lib/letters';
 import type { Grade } from '../../lib/srs';
 import type { AppData } from '../../lib/store';
 import { wordsInTopic } from '../../lib/words';
 import { TileCard } from '../Cards';
 import { GameShell, Tally } from './GameShell';
 
-/** An endless, random stream of words to type in Maltese. Practice only: nothing is scheduled. */
+/** An endless, random stream of words to type in the language being learned. Practice only: nothing is scheduled. */
 export function InfiniteTyping({ data, onExit }: { data: AppData; onExit: () => void }) {
   const [{ topic, show, autoCheck }] = useState(data.settings);
-  const [stream] = useState(() => new WordStream(wordsInTopic(topic, data.settings)));
+  const [stream] = useState(() => {
+    const words = wordsInTopic(topic, data.settings);
+    const fit = words.filter((w) => typeable(w.mt));
+    return new WordStream(fit.length > 0 ? fit : words);
+  });
   const [word, setWord] = useState(() => stream.next());
   const [turn, setTurn] = useState(0);
   const [correct, setCorrect] = useState(0);

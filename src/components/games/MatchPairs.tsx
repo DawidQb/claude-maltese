@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { makePairsRound } from '../../lib/games';
 import type { AppData } from '../../lib/store';
-import { wordsInTopic } from '../../lib/words';
+import { TARGET, wordsInTopic } from '../../lib/words';
 import { TranslationLines } from '../Cards';
 import { GameShell, Tally } from './GameShell';
 
@@ -62,7 +62,7 @@ export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void
   return (
     <GameShell title="Match pairs" status={<Tally ok={score.ok} bad={score.bad} />} onExit={onExit}>
       <div className="pairs pairs-comb">
-        <div className="pairs-col" role="group" aria-label="Maltese">
+        <div className="pairs-col" role="group" aria-label={TARGET}>
           {round.left.map((w) => (
             <button
               key={w.id}
@@ -98,7 +98,7 @@ export function MatchPairs({ data, onExit }: { data: AppData; onExit: () => void
             Next round
           </button>
         ) : (
-          <p className="tap-hint">Tap a Maltese word, then its translation</p>
+          <p className="tap-hint">Tap a word, then its translation</p>
         )}
       </div>
     </GameShell>

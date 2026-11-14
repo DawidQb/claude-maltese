@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { cardKey } from '../lib/srs';
 import type { AppData } from '../lib/store';
 import { fold } from '../lib/text';
-import { TOPICS, WORDS, topicsWith } from '../lib/words';
-import { DIRECTION_LABEL } from './Home';
+import { LEARN, SOURCE, TARGET, TOPICS, WORDS, topicsWith } from '../lib/words';
+import { directionLabel } from './Home';
 
 function boxLabel(box: number): string {
   if (box === 0) return 'New';
@@ -40,7 +40,7 @@ export function WordList({ data }: { data: AppData }) {
         <input
           type="search"
           className="input"
-          placeholder="Search Maltese, Polish or English"
+          placeholder={`Search ${TARGET}, ${SOURCE.replace(' / ', ' or ')}`}
           aria-label="Search words"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -56,7 +56,7 @@ export function WordList({ data }: { data: AppData }) {
       </div>
 
       <p className="muted">
-        {count} {count === 1 ? 'word' : 'words'} · progress shown for {DIRECTION_LABEL[dir]}
+        {count} {count === 1 ? 'word' : 'words'} · progress shown for {directionLabel(dir)}
       </p>
 
       {groups.map((g) => (
@@ -80,7 +80,13 @@ export function WordList({ data }: { data: AppData }) {
                       )}
                     </span>
                     <span className="wordlist-tr">
-                      <span lang="pl">{w.pl}</span> · <span lang="en">{w.en}</span>
+                      <span lang="pl">{w.pl}</span>
+                      {LEARN === 'mt' && (
+                        <>
+                          {' '}
+                          · <span lang="en">{w.en}</span>
+                        </>
+                      )}
                     </span>
                   </div>
                   <span className={`badge badge-${box === 0 ? 'new' : box >= 3 ? 'known' : 'learning'}`}>{boxLabel(box)}</span>

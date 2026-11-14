@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { applyGrade, bumpStreak, cardKey, type CardState, type Direction, type Grade, type Streak } from './srs';
 import { PACES, type Pace } from './meadow';
-import { ALL_TOPICS, TOPICS } from './words';
+import { ALL_TOPICS, TOPICS, type Learn } from './words';
 
 export type ShowLang = 'both' | 'pl' | 'en';
 
 export interface Settings {
+  /** The language being learned: Maltese, or English through Polish. Each has its own progress. */
+  learn: Learn;
   newPerDay: number;
   /** Which translations appear on the card. */
   show: ShowLang;
@@ -50,7 +52,7 @@ export function emptyData(): AppData {
   return {
     version: 1,
     cards: {},
-    settings: { newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false, meadowPace: 'normal' },
+    settings: { learn: 'mt', newPerDay: 10, show: 'both', direction: 'mt2x', gameDirection: 'x2mt', topic: ALL_TOPICS, typing: false, autoCheck: true, plurals: true, verbForms: true, sound: true, bees: false, meadowPace: 'normal' },
     streak: { count: 0, last: null },
     introduced: { date: '', mt2x: 0, x2mt: 0 },
     games: { speedBest: 0, hiveBest: 0, queenBest: 0, stingBest: 0 },
@@ -76,6 +78,7 @@ export function sanitize(input: unknown): AppData | null {
 
   const s = (src.settings ?? {}) as Partial<Settings>;
   const settings: Settings = {
+    learn: s.learn === 'en' ? 'en' : 'mt',
     newPerDay: typeof s.newPerDay === 'number' && s.newPerDay >= 0 ? Math.min(50, Math.round(s.newPerDay)) : base.settings.newPerDay,
     show: s.show === 'pl' || s.show === 'en' || s.show === 'both' ? s.show : base.settings.show,
     direction: s.direction === 'x2mt' ? 'x2mt' : 'mt2x',
@@ -107,6 +110,11 @@ export function sanitize(input: unknown): AppData | null {
   const games = { speedBest: best(g.speedBest), hiveBest: best(g.hiveBest), queenBest: best(g.queenBest), stingBest: best(g.stingBest) };
 
   return { version: 1, cards, settings, streak, introduced, games };
+}
+
+/** The data as the screens see it: when English is learned, Polish is the only translation there is. */
+export function viewOf(data: AppData): AppData {
+  return data.settings.learn === 'en' && data.settings.show !== 'pl' ? { ...data, settings: { ...data.settings, show: 'pl' } } : data;
 }
 
 export function loadData(): AppData {

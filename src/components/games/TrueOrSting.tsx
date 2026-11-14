@@ -297,7 +297,7 @@ export function TrueOrSting({ data, update, onExit }: { data: AppData; update: U
       {phase === 'ready' && (
         <div className="card card-done">
           <p className="done-title">30 seconds</p>
-          <p className="done-text">A Maltese word and a meaning. Let it in if they match, sting it if they don’t. A wrong call costs two seconds.</p>
+          <p className="done-text">A word and a meaning. Let it in if they match, sting it if they don’t. A wrong call costs two seconds.</p>
           <p className="muted">Swipe right or → to let in, left or ← to sting.</p>
           {data.games.stingBest > 0 && <p className="muted">Your best: {data.games.stingBest}</p>}
           <div className="done-actions">

@@ -3,7 +3,7 @@ import { checkAnswer, type Verdict } from '../lib/answer';
 import { keyLabel, letterKeys } from '../lib/letters';
 import type { Grade } from '../lib/srs';
 import type { ShowLang } from '../lib/store';
-import type { Word } from '../lib/words';
+import { TARGET, type Word } from '../lib/words';
 
 /* ---------- Typing mode: spell the Maltese word on a letter pad, the app checks it ---------- */
 
@@ -33,7 +33,7 @@ function QuestionCard(props: { word: Word; show: ShowLang; verdict: Verdict | nu
   const tappable = verdict !== null && onTap !== undefined;
   return (
     <div className={`card card-typing${tappable ? ' card-tappable' : ''}${comb ? ' comb-bg' : ''}`} onClick={tappable ? onTap : undefined}>
-      <p className="card-side">Translate into Maltese</p>
+      <p className="card-side">Translate into {TARGET}</p>
       <Face word={word} side="x" show={show} />
       {verdict && (
         <div className="card-answer" role="status">

@@ -3,7 +3,7 @@ import type { Account as AccountState } from '../lib/account';
 import { isInstalled, useInstallPrompt } from '../lib/install';
 import { toISODate } from '../lib/srs';
 import { emptyData, sanitize, type AppData, type ShowLang, type Update } from '../lib/store';
-import { ALL_TOPICS, wordsInTopic, type Include } from '../lib/words';
+import { ALL_TOPICS, SOURCE, TARGET, wordsInTopic, type Include } from '../lib/words';
 import { Account } from './Account';
 
 const SHOW_OPTIONS: { value: ShowLang; label: string }[] = [
@@ -75,20 +75,34 @@ export function Settings({ data, update, account }: { data: AppData; update: Upd
       <section>
         <h2 className="eyebrow">Cards</h2>
         <div className="panel">
-          <label className="field">
-            <span>Translations shown</span>
-            <select
-              className="input"
-              value={data.settings.show}
-              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, show: e.target.value as ShowLang } }))}
-            >
-              {SHOW_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+          <label className="switch">
+            <span>
+              Learn English
+              <small>Study the English words through Polish instead of Maltese. Each language keeps its own progress.</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={data.settings.learn === 'en'}
+              onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, learn: e.target.checked ? 'en' : 'mt' } }))}
+            />
           </label>
+          {data.settings.learn === 'mt' && (
+            <label className="field">
+              <span>Translations shown</span>
+              <select
+                className="input"
+                value={data.settings.show}
+                onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, show: e.target.value as ShowLang } }))}
+              >
+                {SHOW_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="field">
             <span>New words per day</span>
             <select
@@ -130,7 +144,7 @@ export function Settings({ data, update, account }: { data: AppData; update: Upd
           <label className="switch">
             <span>
               Type the answer
-              <small>In Polish / English → Maltese, spell the word on a letter pad instead of flipping the card</small>
+              <small>In {SOURCE} → {TARGET}, spell the word on a letter pad instead of flipping the card</small>
             </span>
             <input
               type="checkbox"

@@ -1,3 +1,5 @@
+import { LEARN } from './words';
+
 /** Which side of the card is the question. */
 export type Direction = 'mt2x' | 'x2mt';
 export type Grade = 'no' | 'almost' | 'knew';
@@ -25,8 +27,9 @@ export function addDays(date: string, days: number): string {
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
+/** The key of a card's saved progress. English cards have keys of their own, so the two languages never share progress. */
 export function cardKey(dir: Direction, wordId: string): string {
-  return `${dir}:${wordId}`;
+  return LEARN === 'en' ? `${dir}:en:${wordId}` : `${dir}:${wordId}`;
 }
 
 export function applyGrade(prev: CardState | undefined, grade: Grade, today: string): CardState {
