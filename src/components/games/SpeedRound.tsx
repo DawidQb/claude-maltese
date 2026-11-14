@@ -3,7 +3,7 @@ import { makeQuestion, WordStream, type Question } from '../../lib/games';
 import type { AppData, Update } from '../../lib/store';
 import { wordsInTopic } from '../../lib/words';
 import { Face, TranslationLines } from '../Cards';
-import { DIRECTION_LABEL } from '../Home';
+import { directionLabel } from '../Home';
 import { GameShell, Tally } from './GameShell';
 
 const ROUND_MS = 60_000;
@@ -124,7 +124,7 @@ export function SpeedRound({ data, update, onExit }: { data: AppData; update: Up
         <div className="card card-done">
           <p className="done-title">60 seconds</p>
           <p className="done-text">Pick the right answer out of four, as many times as you can.</p>
-          <p className="muted">{DIRECTION_LABEL[dir]}</p>
+          <p className="muted">{directionLabel(dir)}</p>
           {data.games.speedBest > 0 && <p className="muted">Your best: {data.games.speedBest}</p>}
           <div className="done-actions">
             <button className="btn btn-primary btn-wide" onClick={start} autoFocus>

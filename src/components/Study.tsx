@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { requestPersistentStorage } from '../lib/install';
 import { buildSession, cardKey, type Direction, type Grade } from '../lib/srs';
 import { newLeft, recordAnswer, type AppData, type ShowLang, type Update } from '../lib/store';
-import { ALL_TOPICS, WORDS, wordsInTopic, type Word } from '../lib/words';
+import { typeable } from '../lib/letters';
+import { ALL_TOPICS, TARGET, WORDS, wordsInTopic, type Word } from '../lib/words';
 import { Face, Forms, TileCard } from './Cards';
-import { DIRECTION_LABEL } from './Home';
+import { directionLabel } from './Home';
 
 interface Props {
   data: AppData;
@@ -83,7 +84,7 @@ export function Study({ data, update, today, onExit }: Props) {
         <button className="btn btn-ghost" onClick={onExit}>
           ← Back
         </button>
-        <span className="study-dir">{topic === ALL_TOPICS ? DIRECTION_LABEL[dir] : topic}</span>
+        <span className="study-dir">{topic === ALL_TOPICS ? directionLabel(dir) : topic}</span>
         <span className="study-count" aria-live="polite">
           {total > 0 ? `${Math.min(done + 1, total)} / ${total}` : ''}
         </span>
@@ -96,7 +97,7 @@ export function Study({ data, update, today, onExit }: Props) {
       )}
 
       {current ? (
-        typing ? (
+        typing && typeable(current.mt) ? (
           <TileCard key={cardId} word={current} show={show} autoCheck={settings.autoCheck} onGrade={answer} tapToContinue />
         ) : (
           <FlipCard key={cardId} word={current} dir={dir} show={show} onGrade={answer} />
@@ -181,7 +182,7 @@ function FlipCard({ word, dir, show, onGrade }: FlipProps) {
         aria-label={revealed ? 'Hide the answer' : 'Show the answer'}
         onClick={() => setRevealed((r) => !r)}
       >
-        <p className="card-side">{dir === 'mt2x' ? 'Maltese' : 'Translate into Maltese'}</p>
+        <p className="card-side">{dir === 'mt2x' ? TARGET : `Translate into ${TARGET}`}</p>
         <Face word={word} side={dir === 'mt2x' ? 'mt' : 'x'} show={show} />
         {revealed && (
           <div className="card-answer">

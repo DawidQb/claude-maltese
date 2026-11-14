@@ -27,7 +27,7 @@ import { playSound, wakeSound, type Sound } from '../../lib/sound';
 import type { AppData, ShowLang, Update } from '../../lib/store';
 import { ALL_TOPICS, wordsInTopic, type Word } from '../../lib/words';
 import { Face, TranslationLines } from '../Cards';
-import { DIRECTION_LABEL } from '../Home';
+import { directionLabel } from '../Home';
 import { beeEye, drawBee, readColors, type Colors } from './beeArt';
 import { GameShell, MistakesList, SpeakerIcon, Tally, type Mistake } from './GameShell';
 
@@ -885,7 +885,7 @@ export function ProtectHive({ data, update, onExit }: { data: AppData; update: U
         <div className="card card-done">
           <p className="done-title">Protect the hive</p>
           <p className="done-text">Tap a word and its answer to zap it before it reaches the hive.</p>
-          <p className="muted">{DIRECTION_LABEL[dir]}</p>
+          <p className="muted">{directionLabel(dir)}</p>
           {data.games.hiveBest > 0 && <p className="muted">Your best: {data.games.hiveBest}</p>}
           <div className="done-actions">
             <button className="btn btn-primary btn-wide" onClick={start} autoFocus>

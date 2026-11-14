@@ -1,25 +1,59 @@
 /**
  * The letter pad for typing a Maltese word without the phone keyboard:
  * the letters the word needs, plus decoys, up to a fixed number of keys.
+ * When English is learned, the pad holds the English alphabet instead.
  */
 import { shuffle, type Rng } from './games';
+import type { Learn } from './words';
 
 /** Keys in the order they are laid out. "għ" is one letter in Maltese, so it is one key. */
-const LAYOUT = [
-  ...['a', 'à', 'b', 'ċ', 'd', 'e', 'è', 'f', 'ġ', 'g', 'għ', 'h', 'ħ', 'i', 'j', 'k', 'l', 'm', 'n'],
-  ...['o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'ż', 'z', '-', "'", ' '],
-];
-
-/** The plain alphabet, without accented vowels or punctuation: the letters offered as decoys. */
-export const ALPHABET = LAYOUT.filter((k) => !['à', 'è', '-', "'", ' '].includes(k));
+const LAYOUTS: Record<Learn, string[]> = {
+  mt: [
+    ...['a', 'à', 'b', 'ċ', 'd', 'e', 'è', 'f', 'ġ', 'g', 'għ', 'h', 'ħ', 'i', 'j', 'k', 'l', 'm', 'n'],
+    ...['o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'ż', 'z', '-', "'", ' '],
+  ],
+  en: [...'abcdefghijklmnopqrstuvwxyz', '-', "'", ' '],
+};
 
 /** Letters that are easy to mix up. When a word has one, the others make the best decoys. */
-export const LOOKALIKES = [
-  ['h', 'ħ', 'għ'],
-  ['g', 'ġ', 'għ'],
-  ['z', 'ż'],
-  ['ċ', 'k'],
-];
+const ALIKE: Record<Learn, string[][]> = {
+  mt: [
+    ['h', 'ħ', 'għ'],
+    ['g', 'ġ', 'għ'],
+    ['z', 'ż'],
+    ['ċ', 'k'],
+  ],
+  en: [
+    ['c', 'k', 's'],
+    ['i', 'y'],
+    ['v', 'w'],
+    ['a', 'e'],
+    ['o', 'u'],
+  ],
+};
+
+const plain = (layout: string[]) => layout.filter((k) => !['à', 'è', '-', "'", ' '].includes(k));
+
+// Live bindings, like the deck: every importer sees the letters set by the latest setLetters().
+let LAYOUT = LAYOUTS.mt;
+/** The plain alphabet, without accented vowels or punctuation: the letters offered as decoys. */
+export let ALPHABET = plain(LAYOUT);
+export let LOOKALIKES = ALIKE.mt;
+
+/** Switches the pad to the alphabet of the language being learned. Called by setLearn(). */
+export function setLetters(learn: Learn): void {
+  LAYOUT = LAYOUTS[learn];
+  ALPHABET = plain(LAYOUT);
+  LOOKALIKES = ALIKE[learn];
+}
+
+/**
+ * Whether a word can be asked for letter by letter. An English meaning with a note or a second
+ * meaning ("cold (noun)", "hi / bye") cannot; every Maltese word can.
+ */
+export function typeable(word: string): boolean {
+  return !/[/()]/.test(word);
+}
 
 /** Punctuation that never counts for or against an answer, so it needs no key. */
 const IGNORED = /[…?!.,]/g;

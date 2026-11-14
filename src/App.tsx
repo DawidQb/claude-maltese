@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { BeeSwarm } from './components/BeeSwarm';
 import { Games, type GameId } from './components/Games';
 import { BouncyBee } from './components/games/BouncyBee';
@@ -17,8 +17,9 @@ import { Study } from './components/Study';
 import { WordList } from './components/WordList';
 import { useAccount } from './lib/account';
 import { toISODate } from './lib/srs';
-import { useStore } from './lib/store';
+import { useStore, viewOf } from './lib/store';
 import { useDeck } from './lib/useDeck';
+import { setLearn, TARGET } from './lib/words';
 
 type Tab = 'home' | 'games' | 'words' | 'settings';
 
@@ -30,8 +31,11 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export function App() {
-  const [data, update] = useStore();
-  const account = useAccount(data, update);
+  const [stored, update] = useStore();
+  // Before anything below reads the deck: the words, letters and names of the language being learned.
+  setLearn(stored.settings.learn);
+  const data = useMemo(() => viewOf(stored), [stored]);
+  const account = useAccount(stored, update);
   const [tab, setTab] = useState<Tab>('home');
   // A study session or a game takes over the whole screen.
   const [activity, setActivity] = useState<'study' | GameId | null>(null);
@@ -71,14 +75,14 @@ export function App() {
           <span className="brand" lang="mt">
             naħla
           </span>
-          <span className="brand-sub">Maltese flashcards</span>
+          <span className="brand-sub">{TARGET} flashcards</span>
         </header>
 
         <main className="content" key={deckVersion}>
           {tab === 'home' && <Home data={data} update={update} today={today} onStudy={() => setActivity('study')} />}
           {tab === 'games' && <Games data={data} update={update} onPlay={setActivity} />}
           {tab === 'words' && <WordList data={data} />}
-          {tab === 'settings' && <Settings data={data} update={update} account={account} />}
+          {tab === 'settings' && <Settings data={stored} update={update} account={account} />}
         </main>
 
         <nav className="tabs" aria-label="Sections">

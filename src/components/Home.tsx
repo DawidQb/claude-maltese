@@ -1,6 +1,6 @@
 import { cardKey, countDue, countNew, type Direction } from '../lib/srs';
 import { newLeft, type AppData, type Settings, type Update } from '../lib/store';
-import { ALL_TOPICS, topicsWith, wordsInTopic, type Include } from '../lib/words';
+import { ALL_TOPICS, SOURCE, TARGET, topicsWith, wordsInTopic, type Include } from '../lib/words';
 
 interface Props {
   data: AppData;
@@ -9,10 +9,10 @@ interface Props {
   onStudy: () => void;
 }
 
-export const DIRECTION_LABEL: Record<Direction, string> = {
-  mt2x: 'Maltese → Polish / English',
-  x2mt: 'Polish / English → Maltese',
-};
+/** A direction by name, e.g. "Maltese → Polish / English", for the language being learned. */
+export function directionLabel(dir: Direction): string {
+  return dir === 'mt2x' ? `${TARGET} → ${SOURCE}` : `${SOURCE} → ${TARGET}`;
+}
 
 /** The topic choices, with card counts that follow the plural-forms setting. */
 export function TopicOptions({ include }: { include: Include }) {
@@ -38,7 +38,7 @@ export function DirectionPicker({ id, value, onChange }: { id: string; value: Di
       <div className="segmented" role="group" aria-labelledby={id}>
         {(['mt2x', 'x2mt'] as Direction[]).map((d) => (
           <button key={d} aria-pressed={value === d} onClick={() => onChange(d)}>
-            {DIRECTION_LABEL[d]}
+            {directionLabel(d)}
           </button>
         ))}
       </div>
@@ -71,7 +71,7 @@ export function Home({ data, update, today, onStudy }: Props) {
           <label className="switch">
             <span>
               Type the answer
-              <small>Spell the Maltese word on a letter pad instead of flipping the card</small>
+              <small>Spell the {TARGET} word on a letter pad instead of flipping the card</small>
             </span>
             <input type="checkbox" role="switch" checked={typing} onChange={(e) => set({ typing: e.target.checked })} />
           </label>
