@@ -67,8 +67,10 @@ Import / Reset buttons, the database migrations. Do not change them.
 3. In the sign-in form, delete the "Create account" button. "Sign in" is then the only button
    in its row; "Forgot password?" stays in the row below.
 4. Change the sign-in form's opening line to:
-   "Sign in to keep your progress in step on every device. Accounts are set up by the app's
-   owner."
+   "Sign in to keep your progress in step on every device. Sign-in is only for people the
+   app's owner has added by hand; there is no sign-up."
+   The owner asked for this notice explicitly. It must be visible on the sign-in form itself,
+   not only in the README.
 5. `repeat`, `mismatch`, `MIN_PASSWORD` and `PasswordField`'s `isNew` are still used by the
    new-password form (`account.recovering`). Keep them. Update the comment above
    `MIN_PASSWORD` if it no longer reads right.
