@@ -9,10 +9,10 @@ const STATUS_TEXT: Record<AccountState['status'], string> = {
   error: 'Sync failed',
 };
 
-/** Supabase's own minimum is 6; set the same or higher under Authentication → Sign In / Providers → Email. */
+/** Asked for when a new password is chosen. Supabase's own minimum is 6; set the same or higher under Authentication → Sign In / Providers → Email. */
 export const MIN_PASSWORD = 8;
 
-type Mode = 'signin' | 'signup' | 'reset';
+type Mode = 'signin' | 'reset';
 
 function timeOf(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -164,44 +164,6 @@ export function Account({ account }: { account: AccountState }) {
     );
   }
 
-  if (mode === 'signup') {
-    const create = (e: FormEvent) => {
-      e.preventDefault();
-      if (mismatch) return;
-      void attempt(async () => {
-        const result = await account.signUp(address, password);
-        if (result === 'signed-in') return null;
-        setMode('signin');
-        return 'Check your email and open the link to confirm your address, then sign in here.';
-      });
-    };
-    return (
-      <form onSubmit={create}>
-        <p className="muted">
-          Create an account to keep your progress in step on every device. Progress already on this device is kept and
-          added to it. Use a password of at least {MIN_PASSWORD} characters.
-        </p>
-        {emailField}
-        <PasswordField label="Password" value={password} onChange={setPassword} isNew />
-        <PasswordField label="Repeat password" value={repeat} onChange={setRepeat} isNew />
-        {mismatch && <p className="status">The passwords differ.</p>}
-        <div className="row">
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={busy || !address || password.length < MIN_PASSWORD || repeat !== password}
-          >
-            Create account
-          </button>
-          <button className="btn btn-secondary" type="button" onClick={() => switchTo('signin')}>
-            I have an account
-          </button>
-        </div>
-        {status}
-      </form>
-    );
-  }
-
   const signIn = (e: FormEvent) => {
     e.preventDefault();
     void attempt(async () => {
@@ -211,15 +173,15 @@ export function Account({ account }: { account: AccountState }) {
   };
   return (
     <form onSubmit={signIn}>
-      <p className="muted">Sign in to keep your progress in step on every device.</p>
+      <p className="muted">
+        Sign in to keep your progress in step on every device. Sign-in is only for people the app's owner has added by
+        hand; there is no sign-up.
+      </p>
       {emailField}
       <PasswordField label="Password" value={password} onChange={setPassword} />
       <div className="row">
         <button className="btn btn-primary" type="submit" disabled={busy || !address || !password}>
           Sign in
-        </button>
-        <button className="btn btn-secondary" type="button" onClick={() => switchTo('signup')}>
-          Create account
         </button>
       </div>
       <div className="row">
