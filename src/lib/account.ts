@@ -17,8 +17,6 @@ export interface Account {
   /** True after opening a password-reset link: the app should ask for a new password. */
   recovering: boolean;
   signIn(email: string, password: string): Promise<void>;
-  /** Creates the account. Resolves 'confirm' when the email address still has to be confirmed. */
-  signUp(email: string, password: string): Promise<'signed-in' | 'confirm'>;
   /** Emails a link that opens the app ready to set a new password. */
   sendPasswordReset(email: string): Promise<void>;
   setPassword(password: string): Promise<void>;
@@ -195,13 +193,6 @@ export function useAccount(data: AppData, update: Update): Account {
     if (e) throw new Error(authMessage(e));
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const supabase = await getClient();
-    const { data: res, error: e } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: appUrl() } });
-    if (e) throw new Error(authMessage(e));
-    return res.session ? 'signed-in' : 'confirm';
-  }, []);
-
   const sendPasswordReset = useCallback(async (email: string) => {
     const supabase = await getClient();
     const { error: e } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: appUrl() });
@@ -235,7 +226,6 @@ export function useAccount(data: AppData, update: Update): Account {
     error,
     recovering,
     signIn,
-    signUp,
     sendPasswordReset,
     setPassword,
     signOut,
