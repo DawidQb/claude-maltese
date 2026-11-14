@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { checkAnswer, type Verdict } from '../lib/answer';
 import { keyLabel, letterKeys } from '../lib/letters';
 import type { Grade } from '../lib/srs';
@@ -12,6 +12,9 @@ const VERDICT: Record<Verdict, { title: string; grade: Grade }> = {
   close: { title: 'Almost', grade: 'almost' },
   wrong: { title: 'Not quite', grade: 'no' },
 };
+
+/** How long the "Correct" screen stays up before the next word comes on its own. */
+const CORRECT_PAUSE_MS = 600;
 
 interface TypeProps {
   word: Word;
@@ -79,6 +82,23 @@ export function TileCard({ word, show, autoCheck, onGrade, tapToContinue = false
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const typed = typedKeys.join('');
 
+  // Grade once only, whether the learner taps Continue or the timer below gets there first.
+  const graded = useRef(false);
+  const onGradeRef = useRef(onGrade);
+  onGradeRef.current = onGrade;
+  const grade = (g: Grade) => {
+    if (graded.current) return;
+    graded.current = true;
+    onGradeRef.current(g);
+  };
+
+  // A right answer needs no reading: flash "Correct" and move on without a tap.
+  useEffect(() => {
+    if (verdict !== 'correct') return;
+    const t = setTimeout(() => grade('knew'), CORRECT_PAUSE_MS);
+    return () => clearTimeout(t);
+  }, [verdict]);
+
   // Only a fully correct spelling is accepted on its own; anything else waits for Check.
   useEffect(() => {
     if (autoCheck && !verdict && checkAnswer(typed, word.mt) === 'correct') setVerdict('correct');
@@ -111,12 +131,12 @@ export function TileCard({ word, show, autoCheck, onGrade, tapToContinue = false
         verdict={verdict}
         typed={typed.trim()}
         comb={comb}
-        onTap={tapToContinue && verdict ? () => onGrade(VERDICT[verdict].grade) : undefined}
+        onTap={tapToContinue && verdict ? () => grade(VERDICT[verdict].grade) : undefined}
       />
 
       <div className="actions">
         {verdict ? (
-          <ResultButtons verdict={verdict} onGrade={onGrade} />
+          <ResultButtons verdict={verdict} onGrade={grade} />
         ) : (
           <div className="type-form">
             <div className="tile-entry">
